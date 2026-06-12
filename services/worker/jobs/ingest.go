@@ -13,7 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	ingestcore "cartograph/ingest-core"
+	"cartograph/ingest-core/amazon"
 	"cartograph/ingest-core/shopify"
+	"cartograph/ingest-core/woocommerce"
 )
 
 type importJob struct {
@@ -70,6 +72,10 @@ func (r *Runner) parseFile(ctx context.Context, job importJob) (*ingestcore.Pars
 	switch strings.ToUpper(job.Platform) {
 	case "SHOPIFY":
 		return shopify.ParseOrdersCSV(f)
+	case "AMAZON":
+		return amazon.ParseOrdersCSV(f)
+	case "WOOCOMMERCE":
+		return woocommerce.ParseOrdersCSV(f)
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", job.Platform)
 	}
@@ -108,6 +114,11 @@ func (r *Runner) upsertStore(ctx context.Context, job importJob, result *ingestc
 }
 
 func (r *Runner) upsertData(ctx context.Context, storeID string, result *ingestcore.ParseResult) error {
+	for _, p := range result.Store.Products {
+		if err := upsertProduct(ctx, r.db, storeID, p); err != nil {
+			slog.Warn("upsert product failed", "external_id", p.ExternalID, "err", err)
+		}
+	}
 	for _, c := range result.Store.Customers {
 		if err := upsertCustomer(ctx, r.db, storeID, c); err != nil {
 			slog.Warn("upsert customer failed", "err", err)
@@ -116,6 +127,37 @@ func (r *Runner) upsertData(ctx context.Context, storeID string, result *ingestc
 	for _, o := range result.Store.Orders {
 		if err := upsertOrder(ctx, r.db, storeID, o); err != nil {
 			slog.Warn("upsert order failed", "external_id", o.ExternalID, "err", err)
+		}
+	}
+	return nil
+}
+
+// V5: upsert by (store_id, external_id) — idempotent re-imports.
+func upsertProduct(ctx context.Context, db *pgxpool.Pool, storeID string, p ingestcore.NormalizedProduct) error {
+	var productID string
+	err := db.QueryRow(ctx, `
+		INSERT INTO products (store_id, external_id, title, description, product_type, vendor, tags, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (store_id, external_id) DO UPDATE SET
+			title        = EXCLUDED.title,
+			description  = EXCLUDED.description,
+			product_type = EXCLUDED.product_type,
+			vendor       = EXCLUDED.vendor,
+			tags         = EXCLUDED.tags
+		RETURNING id::TEXT
+	`, storeID, p.ExternalID, p.Title, p.Description, p.ProductType, p.Vendor, p.Tags, p.Status).Scan(&productID)
+	if err != nil {
+		return err
+	}
+	for _, v := range p.Variants {
+		if _, err := db.Exec(ctx, `
+			INSERT INTO variants (product_id, sku, option_color, option_size, option_other,
+			                      price_cents, cost_cents, inventory_qty)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT DO NOTHING
+		`, productID, v.SKU, v.OptionColor, v.OptionSize, v.OptionOther,
+			v.PriceCents, v.CostCents, v.InventoryQty); err != nil {
+			slog.Warn("upsert variant failed", "sku", v.SKU, "err", err)
 		}
 	}
 	return nil
