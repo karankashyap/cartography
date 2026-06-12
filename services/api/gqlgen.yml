@@ -16,10 +16,6 @@ resolver:
   filename_template: "{name}.resolvers.go"
 
 models:
-  ID:
-    model:
-      - github.com/99designs/gqlgen/graphql/introspection.Type
-      - github.com/99designs/gqlgen/graphql.ID
   DateTime:
     model: github.com/99designs/gqlgen/graphql.Time
   Upload:

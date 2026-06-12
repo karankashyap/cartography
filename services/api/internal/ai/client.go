@@ -22,6 +22,9 @@ type Client struct {
 	readonlyDB *pgxpool.Pool
 }
 
+// OllamaURL returns the configured Ollama endpoint URL.
+func (c *Client) OllamaURL() string { return c.ollamaURL }
+
 func NewClient(ollamaURL string, readonlyDB *pgxpool.Pool) *Client {
 	return &Client{
 		ollamaURL:  ollamaURL,
