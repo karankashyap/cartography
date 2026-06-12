@@ -41,16 +41,38 @@ func (r *mutationResolver) ImportStore(ctx context.Context, filename string, pla
 }
 
 // Ask is the resolver for the ask field.
-// Full text-to-SQL guardrail implemented in Phase 3.
 func (r *mutationResolver) Ask(ctx context.Context, storeID string, question string) (*model.ChatAnswer, error) {
-	return &model.ChatAnswer{
+	sid, err := uuid.Parse(storeID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid storeId: %w", err)
+	}
+
+	res := r.AIClient.Ask(ctx, sid, question)
+
+	// Log best-effort — don't fail the request if audit log insert fails.
+	_, _ = r.DB.Exec(ctx, `
+		INSERT INTO chat_queries (store_id, question, generated_sql, was_blocked, rows_returned)
+		VALUES ($1, $2, $3, $4, $5)
+	`, sid, question, res.SQL, res.Blocked, len(res.Rows))
+
+	ans := &model.ChatAnswer{
 		Question:    question,
-		SQL:         "",
-		Blocked:     false,
-		Columns:     []string{},
-		Rows:        [][]*string{},
-		Explanation: "Text-to-SQL is coming in the next phase.",
-	}, nil
+		SQL:         res.SQL,
+		Blocked:     res.Blocked,
+		Columns:     res.Columns,
+		Rows:        res.Rows,
+		Explanation: res.Explanation,
+	}
+	if res.BlockReason != "" {
+		ans.BlockReason = &res.BlockReason
+	}
+	if ans.Columns == nil {
+		ans.Columns = []string{}
+	}
+	if ans.Rows == nil {
+		ans.Rows = [][]*string{}
+	}
+	return ans, nil
 }
 
 // GenerateContent is the resolver for the generateContent field.
