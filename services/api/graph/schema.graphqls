@@ -24,6 +24,8 @@ type Metrics {
   bottomProducts: [ProductStat!]!
   deadStock: [VariantStat!]!
   trend: [TimePoint!]!
+  cohortRetention: [CohortRow!]!
+  inventoryVelocity: [VelocityStat!]!
 }
 
 type ProductStat {
@@ -45,6 +47,22 @@ type TimePoint {
   date: String!
   revenueCents: Int!
   orders: Int!
+}
+
+type CohortRow {
+  cohortMonth: String!
+  activityMonth: String!
+  customers: Int!
+  retentionPct: Float!
+}
+
+type VelocityStat {
+  variantId: ID!
+  sku: String
+  title: String!
+  unitsPer30Days: Float!
+  unitsPer90Days: Float!
+  inventoryQty: Int!
 }
 
 type Insight {

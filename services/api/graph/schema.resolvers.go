@@ -76,8 +76,8 @@ func (r *mutationResolver) Ask(ctx context.Context, storeID string, question str
 }
 
 // GenerateContent is the resolver for the generateContent field.
-func (r *mutationResolver) GenerateContent(ctx context.Context, productIDs []string, kind model.ContentKind) ([]*model.GeneratedContent, error) {
-	products, err := fetchProductsForContent(ctx, r.DB, productIDs)
+func (r *mutationResolver) GenerateContent(ctx context.Context, productIds []string, kind model.ContentKind) ([]*model.GeneratedContent, error) {
+	products, err := fetchProductsForContent(ctx, r.DB, productIds)
 	if err != nil {
 		return nil, err
 	}
@@ -281,8 +281,12 @@ type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 
-// --- helpers ---
-
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//   - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//     it when you're done.
+//   - You have helper methods in this file. Move them out to keep these resolver files clean.
 func queryImportJob(ctx context.Context, db *pgxpool.Pool, id string) (*model.ImportJob, error) {
 	var j model.ImportJob
 	var storeID *string
@@ -310,7 +314,6 @@ func queryImportJob(ctx context.Context, db *pgxpool.Pool, id string) (*model.Im
 	j.Warnings = warnings
 	return &j, nil
 }
-
 func fetchProductsForContent(ctx context.Context, db *pgxpool.Pool, ids []string) ([]ai.ProductInput, error) {
 	rows, err := db.Query(ctx, `
 		SELECT id::TEXT, title, COALESCE(description,''), COALESCE(product_type,''),
@@ -334,7 +337,6 @@ func fetchProductsForContent(ctx context.Context, db *pgxpool.Pool, ids []string
 	}
 	return products, rows.Err()
 }
-
 func metricsToModel(m *analytics.Metrics) *model.Metrics {
 	out := &model.Metrics{
 		RevenueCents:       int(m.RevenueCents),
@@ -376,6 +378,25 @@ func metricsToModel(m *analytics.Metrics) *model.Metrics {
 			Date:         t.Date,
 			RevenueCents: int(t.RevenueCents),
 			Orders:       t.Orders,
+		})
+	}
+	for _, c := range m.CohortRetention {
+		out.CohortRetention = append(out.CohortRetention, &model.CohortRow{
+			CohortMonth:   c.CohortMonth,
+			ActivityMonth: c.ActivityMonth,
+			Customers:     c.Customers,
+			RetentionPct:  c.RetentionPct,
+		})
+	}
+	for _, v := range m.InventoryVelocity {
+		sku := v.SKU
+		out.InventoryVelocity = append(out.InventoryVelocity, &model.VelocityStat{
+			VariantID:      v.VariantID,
+			Sku:            &sku,
+			Title:          v.Title,
+			UnitsPer30Days: v.UnitsPer30Days,
+			UnitsPer90Days: v.UnitsPer90Days,
+			InventoryQty:   v.InventoryQty,
 		})
 	}
 	return out

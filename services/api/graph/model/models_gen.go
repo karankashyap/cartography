@@ -19,6 +19,13 @@ type ChatAnswer struct {
 	Explanation string      `json:"explanation"`
 }
 
+type CohortRow struct {
+	CohortMonth   string  `json:"cohortMonth"`
+	ActivityMonth string  `json:"activityMonth"`
+	Customers     int     `json:"customers"`
+	RetentionPct  float64 `json:"retentionPct"`
+}
+
 type GeneratedContent struct {
 	ProductID string      `json:"productId"`
 	Kind      ContentKind `json:"kind"`
@@ -46,17 +53,19 @@ type Insight struct {
 }
 
 type Metrics struct {
-	RevenueCents       int            `json:"revenueCents"`
-	Orders             int            `json:"orders"`
-	AovCents           int            `json:"aovCents"`
-	UnitsSold          int            `json:"unitsSold"`
-	NewCustomers       int            `json:"newCustomers"`
-	ReturningCustomers int            `json:"returningCustomers"`
-	ReturningRate      float64        `json:"returningRate"`
-	TopProducts        []*ProductStat `json:"topProducts"`
-	BottomProducts     []*ProductStat `json:"bottomProducts"`
-	DeadStock          []*VariantStat `json:"deadStock"`
-	Trend              []*TimePoint   `json:"trend"`
+	RevenueCents       int             `json:"revenueCents"`
+	Orders             int             `json:"orders"`
+	AovCents           int             `json:"aovCents"`
+	UnitsSold          int             `json:"unitsSold"`
+	NewCustomers       int             `json:"newCustomers"`
+	ReturningCustomers int             `json:"returningCustomers"`
+	ReturningRate      float64         `json:"returningRate"`
+	TopProducts        []*ProductStat  `json:"topProducts"`
+	BottomProducts     []*ProductStat  `json:"bottomProducts"`
+	DeadStock          []*VariantStat  `json:"deadStock"`
+	Trend              []*TimePoint    `json:"trend"`
+	CohortRetention    []*CohortRow    `json:"cohortRetention"`
+	InventoryVelocity  []*VelocityStat `json:"inventoryVelocity"`
 }
 
 type Mutation struct {
@@ -103,6 +112,15 @@ type VariantStat struct {
 	Title             string  `json:"title"`
 	InventoryQty      int     `json:"inventoryQty"`
 	DaysSinceLastSale int     `json:"daysSinceLastSale"`
+}
+
+type VelocityStat struct {
+	VariantID      string  `json:"variantId"`
+	Sku            *string `json:"sku,omitempty"`
+	Title          string  `json:"title"`
+	UnitsPer30Days float64 `json:"unitsPer30Days"`
+	UnitsPer90Days float64 `json:"unitsPer90Days"`
+	InventoryQty   int     `json:"inventoryQty"`
 }
 
 type ContentKind string

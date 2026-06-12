@@ -27,6 +27,8 @@ type Metrics struct {
 	BottomProducts     []ProductStat
 	DeadStock          []VariantStat
 	Trend              []TimePoint
+	CohortRetention    []CohortRow
+	InventoryVelocity  []VelocityStat
 }
 
 type ProductStat struct {
@@ -73,6 +75,18 @@ func Compute(ctx context.Context, db *pgxpool.Pool, f MetricsFilter) (*Metrics, 
 	if err := computeTrend(ctx, db, f, m); err != nil {
 		return nil, fmt.Errorf("analytics trend: %w", err)
 	}
+
+	cohort, err := ComputeCohortRetention(ctx, db, f.StoreID)
+	if err != nil {
+		return nil, fmt.Errorf("analytics cohort: %w", err)
+	}
+	m.CohortRetention = cohort
+
+	velocity, err := ComputeInventoryVelocity(ctx, db, f.StoreID)
+	if err != nil {
+		return nil, fmt.Errorf("analytics velocity: %w", err)
+	}
+	m.InventoryVelocity = velocity
 
 	if m.Orders > 0 {
 		m.AOVCents = m.RevenueCents / int64(m.Orders)

@@ -59,6 +59,13 @@ type ComplexityRoot struct {
 		SQL         func(childComplexity int) int
 	}
 
+	CohortRow struct {
+		ActivityMonth func(childComplexity int) int
+		CohortMonth   func(childComplexity int) int
+		Customers     func(childComplexity int) int
+		RetentionPct  func(childComplexity int) int
+	}
+
 	GeneratedContent struct {
 		Content   func(childComplexity int) int
 		Kind      func(childComplexity int) int
@@ -88,7 +95,9 @@ type ComplexityRoot struct {
 	Metrics struct {
 		AovCents           func(childComplexity int) int
 		BottomProducts     func(childComplexity int) int
+		CohortRetention    func(childComplexity int) int
 		DeadStock          func(childComplexity int) int
+		InventoryVelocity  func(childComplexity int) int
 		NewCustomers       func(childComplexity int) int
 		Orders             func(childComplexity int) int
 		ReturningCustomers func(childComplexity int) int
@@ -152,6 +161,15 @@ type ComplexityRoot struct {
 		Sku               func(childComplexity int) int
 		Title             func(childComplexity int) int
 		VariantID         func(childComplexity int) int
+	}
+
+	VelocityStat struct {
+		InventoryQty   func(childComplexity int) int
+		Sku            func(childComplexity int) int
+		Title          func(childComplexity int) int
+		UnitsPer30Days func(childComplexity int) int
+		UnitsPer90Days func(childComplexity int) int
+		VariantID      func(childComplexity int) int
 	}
 }
 
@@ -238,6 +256,34 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.ChatAnswer.SQL(childComplexity), true
+
+	case "CohortRow.activityMonth":
+		if e.complexity.CohortRow.ActivityMonth == nil {
+			break
+		}
+
+		return e.complexity.CohortRow.ActivityMonth(childComplexity), true
+
+	case "CohortRow.cohortMonth":
+		if e.complexity.CohortRow.CohortMonth == nil {
+			break
+		}
+
+		return e.complexity.CohortRow.CohortMonth(childComplexity), true
+
+	case "CohortRow.customers":
+		if e.complexity.CohortRow.Customers == nil {
+			break
+		}
+
+		return e.complexity.CohortRow.Customers(childComplexity), true
+
+	case "CohortRow.retentionPct":
+		if e.complexity.CohortRow.RetentionPct == nil {
+			break
+		}
+
+		return e.complexity.CohortRow.RetentionPct(childComplexity), true
 
 	case "GeneratedContent.content":
 		if e.complexity.GeneratedContent.Content == nil {
@@ -372,12 +418,26 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Metrics.BottomProducts(childComplexity), true
 
+	case "Metrics.cohortRetention":
+		if e.complexity.Metrics.CohortRetention == nil {
+			break
+		}
+
+		return e.complexity.Metrics.CohortRetention(childComplexity), true
+
 	case "Metrics.deadStock":
 		if e.complexity.Metrics.DeadStock == nil {
 			break
 		}
 
 		return e.complexity.Metrics.DeadStock(childComplexity), true
+
+	case "Metrics.inventoryVelocity":
+		if e.complexity.Metrics.InventoryVelocity == nil {
+			break
+		}
+
+		return e.complexity.Metrics.InventoryVelocity(childComplexity), true
 
 	case "Metrics.newCustomers":
 		if e.complexity.Metrics.NewCustomers == nil {
@@ -692,6 +752,48 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.VariantStat.VariantID(childComplexity), true
 
+	case "VelocityStat.inventoryQty":
+		if e.complexity.VelocityStat.InventoryQty == nil {
+			break
+		}
+
+		return e.complexity.VelocityStat.InventoryQty(childComplexity), true
+
+	case "VelocityStat.sku":
+		if e.complexity.VelocityStat.Sku == nil {
+			break
+		}
+
+		return e.complexity.VelocityStat.Sku(childComplexity), true
+
+	case "VelocityStat.title":
+		if e.complexity.VelocityStat.Title == nil {
+			break
+		}
+
+		return e.complexity.VelocityStat.Title(childComplexity), true
+
+	case "VelocityStat.unitsPer30Days":
+		if e.complexity.VelocityStat.UnitsPer30Days == nil {
+			break
+		}
+
+		return e.complexity.VelocityStat.UnitsPer30Days(childComplexity), true
+
+	case "VelocityStat.unitsPer90Days":
+		if e.complexity.VelocityStat.UnitsPer90Days == nil {
+			break
+		}
+
+		return e.complexity.VelocityStat.UnitsPer90Days(childComplexity), true
+
+	case "VelocityStat.variantId":
+		if e.complexity.VelocityStat.VariantID == nil {
+			break
+		}
+
+		return e.complexity.VelocityStat.VariantID(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -839,6 +941,8 @@ type Metrics {
   bottomProducts: [ProductStat!]!
   deadStock: [VariantStat!]!
   trend: [TimePoint!]!
+  cohortRetention: [CohortRow!]!
+  inventoryVelocity: [VelocityStat!]!
 }
 
 type ProductStat {
@@ -860,6 +964,22 @@ type TimePoint {
   date: String!
   revenueCents: Int!
   orders: Int!
+}
+
+type CohortRow {
+  cohortMonth: String!
+  activityMonth: String!
+  customers: Int!
+  retentionPct: Float!
+}
+
+type VelocityStat {
+  variantId: ID!
+  sku: String
+  title: String!
+  unitsPer30Days: Float!
+  unitsPer90Days: Float!
+  inventoryQty: Int!
 }
 
 type Insight {
@@ -1495,6 +1615,182 @@ func (ec *executionContext) fieldContext_ChatAnswer_explanation(_ context.Contex
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CohortRow_cohortMonth(ctx context.Context, field graphql.CollectedField, obj *model.CohortRow) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CohortRow_cohortMonth(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CohortMonth, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CohortRow_cohortMonth(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CohortRow",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CohortRow_activityMonth(ctx context.Context, field graphql.CollectedField, obj *model.CohortRow) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CohortRow_activityMonth(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ActivityMonth, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CohortRow_activityMonth(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CohortRow",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CohortRow_customers(ctx context.Context, field graphql.CollectedField, obj *model.CohortRow) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CohortRow_customers(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Customers, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CohortRow_customers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CohortRow",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CohortRow_retentionPct(ctx context.Context, field graphql.CollectedField, obj *model.CohortRow) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CohortRow_retentionPct(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.RetentionPct, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CohortRow_retentionPct(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CohortRow",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2757,6 +3053,118 @@ func (ec *executionContext) fieldContext_Metrics_trend(_ context.Context, field 
 	return fc, nil
 }
 
+func (ec *executionContext) _Metrics_cohortRetention(ctx context.Context, field graphql.CollectedField, obj *model.Metrics) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Metrics_cohortRetention(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CohortRetention, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.CohortRow)
+	fc.Result = res
+	return ec.marshalNCohortRow2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐCohortRowᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Metrics_cohortRetention(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cohortMonth":
+				return ec.fieldContext_CohortRow_cohortMonth(ctx, field)
+			case "activityMonth":
+				return ec.fieldContext_CohortRow_activityMonth(ctx, field)
+			case "customers":
+				return ec.fieldContext_CohortRow_customers(ctx, field)
+			case "retentionPct":
+				return ec.fieldContext_CohortRow_retentionPct(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CohortRow", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Metrics_inventoryVelocity(ctx context.Context, field graphql.CollectedField, obj *model.Metrics) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Metrics_inventoryVelocity(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.InventoryVelocity, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.VelocityStat)
+	fc.Result = res
+	return ec.marshalNVelocityStat2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐVelocityStatᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Metrics_inventoryVelocity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Metrics",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "variantId":
+				return ec.fieldContext_VelocityStat_variantId(ctx, field)
+			case "sku":
+				return ec.fieldContext_VelocityStat_sku(ctx, field)
+			case "title":
+				return ec.fieldContext_VelocityStat_title(ctx, field)
+			case "unitsPer30Days":
+				return ec.fieldContext_VelocityStat_unitsPer30Days(ctx, field)
+			case "unitsPer90Days":
+				return ec.fieldContext_VelocityStat_unitsPer90Days(ctx, field)
+			case "inventoryQty":
+				return ec.fieldContext_VelocityStat_inventoryQty(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type VelocityStat", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_importStore(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_importStore(ctx, field)
 	if err != nil {
@@ -3516,6 +3924,10 @@ func (ec *executionContext) fieldContext_Query_metrics(ctx context.Context, fiel
 				return ec.fieldContext_Metrics_deadStock(ctx, field)
 			case "trend":
 				return ec.fieldContext_Metrics_trend(ctx, field)
+			case "cohortRetention":
+				return ec.fieldContext_Metrics_cohortRetention(ctx, field)
+			case "inventoryVelocity":
+				return ec.fieldContext_Metrics_inventoryVelocity(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Metrics", field.Name)
 		},
@@ -4479,6 +4891,267 @@ func (ec *executionContext) _VariantStat_daysSinceLastSale(ctx context.Context, 
 func (ec *executionContext) fieldContext_VariantStat_daysSinceLastSale(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "VariantStat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VelocityStat_variantId(ctx context.Context, field graphql.CollectedField, obj *model.VelocityStat) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VelocityStat_variantId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.VariantID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VelocityStat_variantId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VelocityStat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VelocityStat_sku(ctx context.Context, field graphql.CollectedField, obj *model.VelocityStat) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VelocityStat_sku(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Sku, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VelocityStat_sku(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VelocityStat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VelocityStat_title(ctx context.Context, field graphql.CollectedField, obj *model.VelocityStat) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VelocityStat_title(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Title, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VelocityStat_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VelocityStat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VelocityStat_unitsPer30Days(ctx context.Context, field graphql.CollectedField, obj *model.VelocityStat) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VelocityStat_unitsPer30Days(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UnitsPer30Days, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VelocityStat_unitsPer30Days(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VelocityStat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VelocityStat_unitsPer90Days(ctx context.Context, field graphql.CollectedField, obj *model.VelocityStat) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VelocityStat_unitsPer90Days(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UnitsPer90Days, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VelocityStat_unitsPer90Days(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VelocityStat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VelocityStat_inventoryQty(ctx context.Context, field graphql.CollectedField, obj *model.VelocityStat) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VelocityStat_inventoryQty(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.InventoryQty, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VelocityStat_inventoryQty(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VelocityStat",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -6336,6 +7009,60 @@ func (ec *executionContext) _ChatAnswer(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var cohortRowImplementors = []string{"CohortRow"}
+
+func (ec *executionContext) _CohortRow(ctx context.Context, sel ast.SelectionSet, obj *model.CohortRow) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cohortRowImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CohortRow")
+		case "cohortMonth":
+			out.Values[i] = ec._CohortRow_cohortMonth(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "activityMonth":
+			out.Values[i] = ec._CohortRow_activityMonth(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "customers":
+			out.Values[i] = ec._CohortRow_customers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retentionPct":
+			out.Values[i] = ec._CohortRow_retentionPct(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var generatedContentImplementors = []string{"GeneratedContent"}
 
 func (ec *executionContext) _GeneratedContent(ctx context.Context, sel ast.SelectionSet, obj *model.GeneratedContent) graphql.Marshaler {
@@ -6571,6 +7298,16 @@ func (ec *executionContext) _Metrics(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "trend":
 			out.Values[i] = ec._Metrics_trend(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cohortRetention":
+			out.Values[i] = ec._Metrics_cohortRetention(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inventoryVelocity":
+			out.Values[i] = ec._Metrics_inventoryVelocity(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -7105,6 +7842,67 @@ func (ec *executionContext) _VariantStat(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var velocityStatImplementors = []string{"VelocityStat"}
+
+func (ec *executionContext) _VelocityStat(ctx context.Context, sel ast.SelectionSet, obj *model.VelocityStat) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, velocityStatImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("VelocityStat")
+		case "variantId":
+			out.Values[i] = ec._VelocityStat_variantId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sku":
+			out.Values[i] = ec._VelocityStat_sku(ctx, field, obj)
+		case "title":
+			out.Values[i] = ec._VelocityStat_title(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "unitsPer30Days":
+			out.Values[i] = ec._VelocityStat_unitsPer30Days(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "unitsPer90Days":
+			out.Values[i] = ec._VelocityStat_unitsPer90Days(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inventoryQty":
+			out.Values[i] = ec._VelocityStat_inventoryQty(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var __DirectiveImplementors = []string{"__Directive"}
 
 func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionSet, obj *introspection.Directive) graphql.Marshaler {
@@ -7458,6 +8256,60 @@ func (ec *executionContext) marshalNChatAnswer2ᚖcartographᚋapiᚋgraphᚋmod
 		return graphql.Null
 	}
 	return ec._ChatAnswer(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCohortRow2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐCohortRowᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CohortRow) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNCohortRow2ᚖcartographᚋapiᚋgraphᚋmodelᚐCohortRow(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNCohortRow2ᚖcartographᚋapiᚋgraphᚋmodelᚐCohortRow(ctx context.Context, sel ast.SelectionSet, v *model.CohortRow) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CohortRow(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNContentKind2cartographᚋapiᚋgraphᚋmodelᚐContentKind(ctx context.Context, v interface{}) (model.ContentKind, error) {
@@ -8051,6 +8903,60 @@ func (ec *executionContext) marshalNVariantStat2ᚖcartographᚋapiᚋgraphᚋmo
 		return graphql.Null
 	}
 	return ec._VariantStat(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNVelocityStat2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐVelocityStatᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.VelocityStat) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNVelocityStat2ᚖcartographᚋapiᚋgraphᚋmodelᚐVelocityStat(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNVelocityStat2ᚖcartographᚋapiᚋgraphᚋmodelᚐVelocityStat(ctx context.Context, sel ast.SelectionSet, v *model.VelocityStat) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._VelocityStat(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
