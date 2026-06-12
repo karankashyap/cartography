@@ -1,0 +1,77 @@
+version: "3.9"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: cartograph-db
+    environment:
+      POSTGRES_DB: cartograph
+      POSTGRES_USER: cartograph
+      POSTGRES_PASSWORD: cartograph
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cartograph"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cartograph-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: cartograph-api
+    environment:
+      DATABASE_URL: "postgres://cartograph:cartograph@db:5432/cartograph?sslmode=disable"
+      CHAT_DATABASE_URL: "postgres://cartograph_chat:cartograph_chat_secret@db:5432/cartograph?sslmode=disable"
+      OLLAMA_URL: "http://ollama:11434"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+    container_name: cartograph-worker
+    environment:
+      DATABASE_URL: "postgres://cartograph:cartograph@db:5432/cartograph?sslmode=disable"
+      OLLAMA_URL: "http://ollama:11434"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    container_name: cartograph-web
+    environment:
+      NEXT_PUBLIC_GRAPHQL_URL: "http://localhost:8080/query"
+      NEXT_PUBLIC_GRAPHQL_WS_URL: "ws://localhost:8080/query"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  ollama-data:

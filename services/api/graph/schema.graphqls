@@ -1,0 +1,111 @@
+scalar DateTime
+scalar Upload
+
+enum Platform { SHOPIFY AMAZON WOOCOMMERCE }
+enum ContentKind { DESCRIPTION SEO EMAIL }
+enum JobState { PENDING RUNNING DONE FAILED }
+
+type Store {
+  id: ID!
+  name: String!
+  platform: Platform!
+  importedAt: DateTime!
+}
+
+type Metrics {
+  revenueCents: Int!
+  orders: Int!
+  aovCents: Int!
+  unitsSold: Int!
+  newCustomers: Int!
+  returningCustomers: Int!
+  returningRate: Float!
+  topProducts: [ProductStat!]!
+  bottomProducts: [ProductStat!]!
+  deadStock: [VariantStat!]!
+  trend: [TimePoint!]!
+}
+
+type ProductStat {
+  productId: ID!
+  title: String!
+  revenueCents: Int!
+  unitsSold: Int!
+}
+
+type VariantStat {
+  variantId: ID!
+  sku: String
+  title: String!
+  inventoryQty: Int!
+  daysSinceLastSale: Int!
+}
+
+type TimePoint {
+  date: String!
+  revenueCents: Int!
+  orders: Int!
+}
+
+type Insight {
+  summary: String!
+  highlights: [String!]!
+  actions: [String!]!
+}
+
+type ChatAnswer {
+  question: String!
+  sql: String!
+  blocked: Boolean!
+  blockReason: String
+  columns: [String!]!
+  rows: [[String]!]!
+  explanation: String!
+}
+
+type GeneratedContent {
+  productId: ID!
+  kind: ContentKind!
+  content: String!
+}
+
+type ImportJob {
+  id: ID!
+  storeId: ID
+  filename: String!
+  platform: Platform!
+  state: JobState!
+  rowsParsed: Int!
+  rowsSkipped: Int!
+  warnings: [String!]
+  startedAt: DateTime
+  finishedAt: DateTime
+  error: String
+}
+
+type Product {
+  id: ID!
+  title: String!
+  description: String
+  productType: String
+  vendor: String
+  tags: [String!]!
+}
+
+type Query {
+  stores: [Store!]!
+  metrics(storeId: ID!, from: DateTime, to: DateTime, platform: Platform): Metrics!
+  insight(storeId: ID!, from: DateTime, to: DateTime): Insight!
+  searchProducts(storeId: ID!, query: String!, limit: Int): [Product!]!
+  importJob(id: ID!): ImportJob
+}
+
+type Mutation {
+  importStore(filename: String!, platform: Platform!): ImportJob!
+  ask(storeId: ID!, question: String!): ChatAnswer!
+  generateContent(productIds: [ID!]!, kind: ContentKind!): [GeneratedContent!]!
+}
+
+type Subscription {
+  importProgress(jobId: ID!): ImportJob!
+}

@@ -1,0 +1,47 @@
+name: Go
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+          cache-dependency-path: |
+            cartography_code/packages/ingest-core/go.sum
+            cartography_code/services/api/go.sum
+            cartography_code/services/worker/go.sum
+
+      - name: Test ingest-core
+        working-directory: cartography_code/packages/ingest-core
+        run: go test ./... -race -count=1 -timeout 60s
+
+      - name: Test api
+        working-directory: cartography_code/services/api
+        run: go test ./... -race -count=1 -timeout 60s
+
+      - name: Test worker
+        working-directory: cartography_code/services/worker
+        run: go test ./... -race -count=1 -timeout 60s
+
+      - name: Lint api
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: cartography_code/services/api
+          version: latest
+          args: --timeout=5m
+
+      - name: Lint ingest-core
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: cartography_code/packages/ingest-core
+          version: latest
+          args: --timeout=5m

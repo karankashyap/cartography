@@ -1,0 +1,24 @@
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev
+
+WORKDIR /app
+
+COPY services/api/go.mod services/api/go.sum ./services/api/
+COPY packages/ingest-core/go.mod packages/ingest-core/go.sum ./packages/ingest-core/
+
+WORKDIR /app/services/api
+RUN go mod download
+
+WORKDIR /app
+COPY services/api/ ./services/api/
+COPY packages/ingest-core/ ./packages/ingest-core/
+
+WORKDIR /app/services/api
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /api-server .
+
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /api-server /api-server
+EXPOSE 8080
+CMD ["/api-server"]

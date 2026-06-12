@@ -1,0 +1,23 @@
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev
+
+WORKDIR /app
+
+COPY services/worker/go.mod services/worker/go.sum ./services/worker/
+COPY packages/ingest-core/go.mod packages/ingest-core/go.sum ./packages/ingest-core/
+
+WORKDIR /app/services/worker
+RUN go mod download
+
+WORKDIR /app
+COPY services/worker/ ./services/worker/
+COPY packages/ingest-core/ ./packages/ingest-core/
+
+WORKDIR /app/services/worker
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /worker .
+
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /worker /worker
+CMD ["/worker"]

@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+*.env.local
+.env
+.turbo/
+*.test.db
+__debug_bin
+.DS_Store
+*.exe
+tmp/
+.idea/
+.vscode/
+coverage/
