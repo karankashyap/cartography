@@ -29,7 +29,25 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <GraphQLProvider>{children}</GraphQLProvider>
+        <GraphQLProvider>
+          <nav className="shrink-0 border-b bg-background/95 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
+              <span className="font-semibold tracking-tight">Cartograph</span>
+              <div className="flex gap-4 text-sm">
+                <a href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Dashboard
+                </a>
+                <a href="/chat" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Chat
+                </a>
+                <a href="/content" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Content
+                </a>
+              </div>
+            </div>
+          </nav>
+          {children}
+        </GraphQLProvider>
       </body>
     </html>
   );
