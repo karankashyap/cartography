@@ -7,7 +7,7 @@ import { makeClient } from "./client";
 export function GraphQLProvider({ children }: { children: React.ReactNode }) {
   const [client, ssr] = useMemo(() => {
     const ssr = ssrExchange();
-    const client = makeClient();
+    const client = makeClient([ssr]);
     return [client, ssr];
   }, []);
 

@@ -297,7 +297,7 @@ func queryImportJob(ctx context.Context, db *pgxpool.Pool, id string) (*model.Im
 	row := db.QueryRow(ctx, `
 		SELECT id::TEXT, store_id::TEXT, filename, platform, state,
 		       rows_parsed, rows_skipped,
-		       COALESCE((SELECT array_agg(w) FROM jsonb_array_elements_text(warnings) w), '{}'),
+		       COALESCE((SELECT array_agg(w) FROM jsonb_array_elements_text(COALESCE(warnings, '[]'::jsonb)) w), '{}'),
 		       started_at, finished_at, error
 		FROM import_jobs WHERE id = $1
 	`, id)

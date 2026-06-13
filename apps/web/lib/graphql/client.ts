@@ -1,4 +1,4 @@
-import { createClient, fetchExchange, subscriptionExchange } from "@urql/core";
+import { createClient, fetchExchange, subscriptionExchange, type Exchange } from "@urql/core";
 import { createClient as createWSClient } from "graphql-ws";
 
 const GRAPHQL_URL =
@@ -16,11 +16,12 @@ function getWSClient() {
   return wsClient;
 }
 
-export function makeClient() {
+export function makeClient(extraExchanges: Exchange[] = []) {
   const ws = getWSClient();
   return createClient({
     url: GRAPHQL_URL,
     exchanges: [
+      ...extraExchanges,
       fetchExchange,
       ...(ws
         ? [

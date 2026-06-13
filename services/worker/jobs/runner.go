@@ -70,7 +70,6 @@ func (r *Runner) processPending(ctx context.Context) error {
 	rows, err := r.db.Query(ctx, `
 		SELECT id::TEXT FROM import_jobs
 		WHERE state = 'pending'
-		ORDER BY created_at
 		LIMIT 10
 	`)
 	if err != nil {

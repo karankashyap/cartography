@@ -39,6 +39,9 @@ services:
       CHAT_DATABASE_URL: "postgres://cartograph_chat:cartograph_chat_secret@db:5432/cartograph?sslmode=disable"
       OLLAMA_URL: "http://ollama:11434"
       PORT: "8080"
+      UPLOAD_DIR: "/data/uploads"
+    volumes:
+      - uploads-data:/data/uploads
     ports:
       - "8080:8080"
     depends_on:
@@ -54,6 +57,9 @@ services:
     environment:
       DATABASE_URL: "postgres://cartograph:cartograph@db:5432/cartograph?sslmode=disable"
       OLLAMA_URL: "http://ollama:11434"
+      UPLOAD_DIR: "/data/uploads"
+    volumes:
+      - uploads-data:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -75,3 +81,4 @@ services:
 volumes:
   pgdata:
   ollama-data:
+  uploads-data:

@@ -3,7 +3,7 @@ RUN corepack enable
 
 FROM base AS installer
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/graphql/package.json ./packages/graphql/
@@ -13,6 +13,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=installer /app/node_modules ./node_modules
 COPY --from=installer /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=installer /app/pnpm-lock.yaml ./
 COPY . .
 RUN pnpm turbo run build --filter=web
 
