@@ -115,7 +115,13 @@ func cleanSQL(raw string) string {
 		}
 		raw = strings.TrimSpace(strings.Join(inner, "\n"))
 	}
-	return strings.TrimRight(strings.TrimSpace(raw), ";")
+	raw = strings.TrimRight(strings.TrimSpace(raw), ";")
+	// DISTINCT + ORDER BY RANDOM() is illegal in Postgres; strip DISTINCT.
+	upper := strings.ToUpper(raw)
+	if strings.Contains(upper, "SELECT DISTINCT") {
+		raw = raw[:strings.Index(upper, "DISTINCT")] + raw[strings.Index(upper, "DISTINCT")+len("DISTINCT "):]
+	}
+	return raw
 }
 
 func validateSQL(sql string) error {
@@ -136,7 +142,7 @@ func validateSQL(sql string) error {
 
 func executeSQL(ctx context.Context, db *pgxpool.Pool, sql string, storeID uuid.UUID) ([]string, [][]*string, error) {
 	upper := strings.ToUpper(sql)
-	if !strings.Contains(upper, " LIMIT ") {
+	if !strings.Contains(upper, "LIMIT") {
 		sql = sql + " LIMIT 100"
 	}
 
