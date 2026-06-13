@@ -51,22 +51,18 @@ interface Store {
 
 export default function DashboardPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-
   const [storesResult] = useQuery({ query: STORES_QUERY });
   const stores: Store[] = storesResult.data?.stores ?? [];
 
   const activeStoreId = selectedStoreId ?? stores[0]?.id ?? null;
 
-  const [metricsResult] = useQuery({
+  const [metricsResult, reexecuteMetrics] = useQuery({
     query: METRICS_QUERY,
     variables: { storeId: activeStoreId },
     pause: !activeStoreId,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: { additionalTypenames: ["Metrics", refreshKey as any] },
   });
 
-  const [insightResult] = useQuery({
+  const [insightResult, reexecuteInsight] = useQuery({
     query: INSIGHT_QUERY,
     variables: { storeId: activeStoreId },
     pause: !activeStoreId,
@@ -100,7 +96,10 @@ export default function DashboardPage() {
               ))}
             </select>
           )}
-          <ImportButton onComplete={() => setRefreshKey((k) => k + 1)} />
+          <ImportButton onComplete={() => {
+              reexecuteMetrics({ requestPolicy: "network-only" });
+              reexecuteInsight({ requestPolicy: "network-only" });
+            }} />
         </div>
       </div>
 

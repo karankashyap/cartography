@@ -1,8 +1,12 @@
 import { createClient, fetchExchange, subscriptionExchange, type Exchange } from "@urql/core";
 import { createClient as createWSClient } from "graphql-ws";
 
+// Server-side (SSR inside Docker): use internal service name.
+// Browser: use public URL via Docker port mapping.
 const GRAPHQL_URL =
-  process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "http://localhost:8080/query";
+  typeof window === "undefined"
+    ? (process.env.GRAPHQL_INTERNAL_URL ?? "http://cartograph-api:8080/query")
+    : (process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "http://localhost:8080/query");
 const GRAPHQL_WS_URL =
   process.env.NEXT_PUBLIC_GRAPHQL_WS_URL ?? "ws://localhost:8080/query";
 

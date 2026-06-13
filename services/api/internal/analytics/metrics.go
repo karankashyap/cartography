@@ -179,7 +179,7 @@ func computeDeadStock(ctx context.Context, db *pgxpool.Pool, f MetricsFilter, m 
 		       v.inventory_qty,
 		       COALESCE(
 		           EXTRACT(DAY FROM now() - MAX(o.ordered_at))::INT,
-		           $4
+		           $3
 		       ) AS days_since_last_sale
 		FROM variants v
 		JOIN products p ON p.id = v.product_id
@@ -189,10 +189,10 @@ func computeDeadStock(ctx context.Context, db *pgxpool.Pool, f MetricsFilter, m 
 		  AND v.inventory_qty > 0
 		GROUP BY v.id, v.sku, p.title, v.inventory_qty
 		HAVING MAX(o.ordered_at) IS NULL
-		    OR MAX(o.ordered_at) < now() - ($3 * INTERVAL '1 day')
+		    OR MAX(o.ordered_at) < now() - ($2 * INTERVAL '1 day')
 		ORDER BY days_since_last_sale DESC, v.inventory_qty DESC
 		LIMIT 20
-	`, f.StoreID, f.From, deadStockDays, deadStockDays)
+	`, f.StoreID, deadStockDays, deadStockDays)
 	if err != nil {
 		return err
 	}
