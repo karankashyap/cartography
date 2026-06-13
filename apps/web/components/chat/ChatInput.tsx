@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, KeyboardEvent } from "react";
-import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 
 interface ChatInputProps {
@@ -42,21 +41,21 @@ export function ChatInput({ onSubmit, disabled }: ChatInputProps) {
         ref={ref}
         rows={1}
         disabled={disabled}
-        placeholder="Ask about your store data… (Enter to send, Shift+Enter for newline)"
-        className="flex-1 resize-none overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        placeholder="Ask about your store data… (Enter to send)"
+        className="flex-1 resize-none overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-4 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 transition-all"
         onKeyDown={handleKeyDown}
         onInput={handleInput}
         aria-label="Chat question input"
         aria-multiline="true"
       />
-      <Button
+      <button
         onClick={submit}
         disabled={disabled}
-        size="icon"
         aria-label="Send question"
+        className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:bg-primary/80 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Send className="h-4 w-4" />
-      </Button>
+      </button>
     </div>
   );
 }

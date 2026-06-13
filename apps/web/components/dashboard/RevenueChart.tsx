@@ -47,8 +47,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
         >
           <defs>
             <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              <stop offset="5%" stopColor="oklch(0.72 0.19 192)" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="oklch(0.72 0.19 192)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -70,7 +70,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
           <Area
             type="monotone"
             dataKey="revenue"
-            stroke="hsl(var(--primary))"
+            stroke="oklch(0.72 0.19 192)"
             strokeWidth={2}
             fill="url(#revenueGrad)"
           />

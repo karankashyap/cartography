@@ -1,20 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "@urql/next";
-import { useState } from "react";
 import { BarChart2, DollarSign, ShoppingCart, TrendingUp, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard, formatCents, formatPct } from "@/components/dashboard/MetricCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { TopProductsTable } from "@/components/dashboard/TopProductsTable";
 import { DeadStockTable } from "@/components/dashboard/DeadStockTable";
-import { ImportButton } from "@/components/dashboard/ImportButton";
-
-const STORES_QUERY = `
-  query Stores {
-    stores { id name platform }
-  }
-`;
+import { useActiveStore } from "@/lib/active-store";
 
 const METRICS_QUERY = `
   query Metrics($storeId: ID!, $from: DateTime, $to: DateTime) {
@@ -43,18 +37,8 @@ const INSIGHT_QUERY = `
   }
 `;
 
-interface Store {
-  id: string;
-  name: string;
-  platform: string;
-}
-
 export default function DashboardPage() {
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  const [storesResult] = useQuery({ query: STORES_QUERY });
-  const stores: Store[] = storesResult.data?.stores ?? [];
-
-  const activeStoreId = selectedStoreId ?? stores[0]?.id ?? null;
+  const { activeStoreId, refreshCount } = useActiveStore();
 
   const [metricsResult, reexecuteMetrics] = useQuery({
     query: METRICS_QUERY,
@@ -68,45 +52,31 @@ export default function DashboardPage() {
     pause: !activeStoreId,
   });
 
+  // Re-fetch after CSV import (triggered via ActiveStoreContext.triggerRefresh)
+  useEffect(() => {
+    if (refreshCount > 0) {
+      reexecuteMetrics({ requestPolicy: "network-only" });
+      reexecuteInsight({ requestPolicy: "network-only" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshCount]);
+
   const m = metricsResult.data?.metrics;
   const insight = insightResult.data?.insight;
 
   return (
-    <main className="min-h-screen bg-background p-6">
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Local-first e-commerce analytics
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {stores.length > 1 && (
-            <select
-              value={activeStoreId ?? ""}
-              onChange={(e) => setSelectedStoreId(e.target.value)}
-              className="rounded-md border bg-background px-3 py-1.5 text-sm"
-              aria-label="Select store"
-            >
-              {stores.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.platform})
-                </option>
-              ))}
-            </select>
-          )}
-          <ImportButton onComplete={() => {
-              reexecuteMetrics({ requestPolicy: "network-only" });
-              reexecuteInsight({ requestPolicy: "network-only" });
-            }} />
-        </div>
+    <main className="min-h-screen p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Local-first e-commerce analytics
+        </p>
       </div>
 
       {!activeStoreId ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed text-center">
+        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 text-center">
           <BarChart2 className="h-8 w-8 text-muted-foreground" />
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Import a Shopify CSV to get started
           </p>
         </div>
@@ -115,12 +85,11 @@ export default function DashboardPage() {
           Loading metrics…
         </div>
       ) : metricsResult.error ? (
-        <div className="rounded-md border border-destructive p-4 text-sm text-destructive">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           Failed to load metrics: {metricsResult.error.message}
         </div>
       ) : m ? (
         <div className="space-y-6">
-          {/* KPI row */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               title="Total Revenue"
@@ -149,7 +118,6 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Revenue trend */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Revenue Trend</CardTitle>
@@ -159,7 +127,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Products + Dead stock */}
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardContent className="pt-6">
@@ -173,7 +140,6 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* AI Insight */}
           {insight && (
             <Card>
               <CardHeader>
