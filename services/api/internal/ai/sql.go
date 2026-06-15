@@ -20,11 +20,9 @@ order_items(id UUID PK, order_id UUID FK→orders, variant_id UUID FK→variants
 const sqlRules = `STRICT RULES — violating any will cause a runtime error:
 
 1. Output ONLY raw SQL — no explanation, no markdown fences (no ` + "```" + `), no comments, no trailing semicolon.
-2. Always filter orders/products/customers/variants directly by store_id:
-   - orders.store_id = $1
-   - products.store_id = $1
-   - customers.store_id = $1
-   Never rely solely on a JOIN to satisfy the store_id filter.
+2. MANDATORY: every query MUST contain the literal text "$1" — the store UUID is passed as parameter $1.
+   Always add a WHERE clause: orders.store_id = $1 (or products.store_id = $1, customers.store_id = $1).
+   A query without "$1" will be REJECTED immediately. No exceptions.
 3. GROUP BY rules (PostgreSQL is strict):
    - Every non-aggregate column in SELECT must appear in GROUP BY.
    - ORDER BY may only reference expressions that appear in GROUP BY or the SELECT alias.
@@ -67,11 +65,28 @@ func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *S
 		}
 	}
 
-	if err := validateSQL(sql); err != nil {
+	if valErr := validateSQL(sql); valErr != nil {
+		// Repair loop: tell the LLM exactly which rule it violated.
+		fixed, repairErr := c.generateSQL(ctx, question, fmt.Sprintf(
+			"The previous query violated a rule: %v\nBad query:\n%s\n\nWrite a corrected query.", valErr, sql,
+		))
+		if repairErr == nil {
+			if valErr2 := validateSQL(fixed); valErr2 == nil {
+				if c2, r2, e2 := executeSQL(ctx, c.readonlyDB, fixed, storeID); e2 == nil {
+					return &SQLResult{
+						SQL:         fixed,
+						Blocked:     false,
+						Columns:     c2,
+						Rows:        r2,
+						Explanation: fmt.Sprintf("Found %d row(s).", len(r2)),
+					}
+				}
+			}
+		}
 		return &SQLResult{
 			SQL:         sql,
 			Blocked:     true,
-			BlockReason: err.Error(),
+			BlockReason: valErr.Error(),
 			Columns:     []string{},
 			Rows:        [][]*string{},
 			Explanation: "Query blocked by safety guardrail.",
