@@ -113,15 +113,21 @@ type Product {
 type Query {
   stores: [Store!]!
   metrics(storeId: ID!, from: DateTime, to: DateTime, platform: Platform): Metrics!
-  insight(storeId: ID!, from: DateTime, to: DateTime): Insight!
+  insight(storeId: ID!, from: DateTime, to: DateTime, provider: AIProvider): Insight!
   searchProducts(storeId: ID!, query: String!, limit: Int): [Product!]!
   importJob(id: ID!): ImportJob
 }
 
+enum AIProvider {
+  OLLAMA
+  LMSTUDIO
+}
+
 type Mutation {
   importStore(filename: String!, platform: Platform!): ImportJob!
-  ask(storeId: ID!, question: String!): ChatAnswer!
-  generateContent(productIds: [ID!]!, kind: ContentKind!): [GeneratedContent!]!
+  deleteStore(storeId: ID!): Boolean!
+  ask(storeId: ID!, question: String!, provider: AIProvider): ChatAnswer!
+  generateContent(productIds: [ID!]!, kind: ContentKind!, provider: AIProvider): [GeneratedContent!]!
 }
 
 type Subscription {

@@ -4,7 +4,7 @@
 ## Quick start (2 minutes)
 
 ```bash
-git clone https://github.com/<you>/cartograph && cd cartograph/cartography_code
+git clone https://github.com/karankashyap/cartograph && cd cartograph
 docker compose -f deploy/docker-compose.yml up
 # open http://localhost:3000
 # drag sample-data/shopify_orders.csv onto the import panel

@@ -8,8 +8,8 @@ import { ChatMessage, type ChatEntry } from "@/components/chat/ChatMessage";
 import { useActiveStore } from "@/lib/active-store";
 
 const ASK_MUTATION = `
-  mutation Ask($storeId: ID!, $question: String!) {
-    ask(storeId: $storeId, question: $question) {
+  mutation Ask($storeId: ID!, $question: String!, $provider: AIProvider) {
+    ask(storeId: $storeId, question: $question, provider: $provider) {
       question
       sql
       blocked
@@ -27,7 +27,7 @@ function nextId() {
 }
 
 export default function ChatPage() {
-  const { activeStoreId } = useActiveStore();
+  const { activeStoreId, aiProvider } = useActiveStore();
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +56,7 @@ export default function ChatPage() {
       },
     ]);
 
-    const result = await ask({ storeId: activeStoreId, question });
+    const result = await ask({ storeId: activeStoreId, question, provider: aiProvider });
 
     setMessages((prev) => {
       const rest = prev.filter((m) => m.id !== pendingId);

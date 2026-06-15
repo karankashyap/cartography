@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -17,29 +18,29 @@ customers(id UUID PK, store_id UUID FK→stores, external_id TEXT, email_hash TE
 orders(id UUID PK, store_id UUID FK→stores, external_id TEXT, customer_id UUID FK→customers, ordered_at TIMESTAMPTZ, subtotal_cents BIGINT, total_cents BIGINT, currency TEXT, country TEXT, is_returning BOOL)
 order_items(id UUID PK, order_id UUID FK→orders, variant_id UUID FK→variants, quantity INT, unit_price_cents BIGINT, line_total_cents BIGINT)`
 
-const sqlRules = `STRICT RULES — violating any will cause a runtime error:
-
-1. Output ONLY raw SQL — no explanation, no markdown fences (no ` + "```" + `), no comments, no trailing semicolon.
-2. MANDATORY: every query MUST contain the literal text "$1" — the store UUID is passed as parameter $1.
-   Always add a WHERE clause: orders.store_id = $1 (or products.store_id = $1, customers.store_id = $1).
-   A query without "$1" will be REJECTED immediately. No exceptions.
-3. GROUP BY rules (PostgreSQL is strict):
-   - Every non-aggregate column in SELECT must appear in GROUP BY.
-   - ORDER BY may only reference expressions that appear in GROUP BY or the SELECT alias.
-   - Use DATE_TRUNC('month', ordered_at) — NOT EXTRACT — for time grouping; it's both groupable and orderable.
-   - Bad:  SELECT EXTRACT(MONTH FROM ordered_at) AS m ... ORDER BY ordered_at
-   - Good: SELECT DATE_TRUNC('month', ordered_at) AS month ... GROUP BY 1 ORDER BY 1
-4. Window functions + GROUP BY are mutually exclusive at the same query level.
-   - To compute running totals, use a subquery or CTE: GROUP BY in inner query, SUM() OVER in outer.
-   - Bad:  SELECT ... SUM(x) OVER (...) FROM t GROUP BY y
-   - Good: SELECT *, SUM(rev) OVER (ORDER BY month) FROM (SELECT DATE_TRUNC('month',...) AS month, SUM(...) AS rev FROM orders GROUP BY 1) sub
-5. DISTINCT + ORDER BY RANDOM() is illegal. Omit DISTINCT when ordering randomly.
-6. Add LIMIT 100 unless the question implies an exact count or total.`
+const sqlRules = `STRICT RULES:
+1. Output ONLY raw SQL — no markdown fences, no comments, no trailing semicolon.
+2. GROUP BY: every non-aggregate column in SELECT must appear in GROUP BY.
+   ORDER BY must reference GROUP BY expressions or their aliases.
+   Use DATE_TRUNC('month', ordered_at) for monthly grouping — never EXTRACT.
+3. Window functions and GROUP BY cannot appear at the same query level.
+   For running totals: GROUP BY in a subquery, window function in the outer SELECT.
+4. Date ranges: ordered_at >= 'YYYY-01-01' AND ordered_at < 'YYYY+1-01-01'
+5. DISTINCT + ORDER BY RANDOM() is illegal — omit DISTINCT when ordering randomly.
+6. Add LIMIT 100 unless the question asks for a total or exact count.`
 
 var forbiddenKeywords = []string{
 	"INSERT ", "UPDATE ", "DELETE ", "DROP ", "CREATE ", "TRUNCATE ",
 	"ALTER ", "GRANT ", "REVOKE ", "COPY ", "EXECUTE ", "PERFORM ",
 	"CALL ", "DO ", "PG_", "INFORMATION_SCHEMA", "$$",
+}
+
+// sqlKeywords that cannot be a table alias.
+var sqlKeywords = map[string]bool{
+	"ON": true, "WHERE": true, "GROUP": true, "ORDER": true,
+	"LIMIT": true, "HAVING": true, "INNER": true, "LEFT": true,
+	"RIGHT": true, "CROSS": true, "FULL": true, "JOIN": true,
+	"AS": true, "SET": true, "WITH": true, "SELECT": true,
 }
 
 // SQLResult holds the outcome of a text-to-SQL ask.
@@ -52,8 +53,10 @@ type SQLResult struct {
 	Explanation string
 }
 
-// Ask generates SQL, validates it, executes it, and retries once on exec error.
+// Ask generates SQL, injects store filters, validates, executes, retries once on error.
 func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *SQLResult {
+	sid := storeID.String()
+
 	sql, err := c.generateSQL(ctx, question, "")
 	if err != nil {
 		return &SQLResult{
@@ -65,24 +68,10 @@ func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *S
 		}
 	}
 
+	// Inject store filter before validation/execution — never trust the LLM for this.
+	sql = injectStoreFilters(sql, sid)
+
 	if valErr := validateSQL(sql); valErr != nil {
-		// Repair loop: tell the LLM exactly which rule it violated.
-		fixed, repairErr := c.generateSQL(ctx, question, fmt.Sprintf(
-			"The previous query violated a rule: %v\nBad query:\n%s\n\nWrite a corrected query.", valErr, sql,
-		))
-		if repairErr == nil {
-			if valErr2 := validateSQL(fixed); valErr2 == nil {
-				if c2, r2, e2 := executeSQL(ctx, c.readonlyDB, fixed, storeID); e2 == nil {
-					return &SQLResult{
-						SQL:         fixed,
-						Blocked:     false,
-						Columns:     c2,
-						Rows:        r2,
-						Explanation: fmt.Sprintf("Found %d row(s).", len(r2)),
-					}
-				}
-			}
-		}
 		return &SQLResult{
 			SQL:         sql,
 			Blocked:     true,
@@ -93,15 +82,16 @@ func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *S
 		}
 	}
 
-	cols, rows, execErr := executeSQL(ctx, c.readonlyDB, sql, storeID)
+	cols, rows, execErr := executeSQL(ctx, c.readonlyDB, sql)
 	if execErr != nil {
-		// Repair loop: feed the error back to the LLM for one retry.
+		// Repair loop: feed execution error back to LLM for one retry.
 		fixed, repairErr := c.generateSQL(ctx, question, fmt.Sprintf(
 			"The previous query failed with: %v\nBad query:\n%s\n\nWrite a corrected query.", execErr, sql,
 		))
 		if repairErr == nil {
+			fixed = injectStoreFilters(fixed, sid)
 			if valErr := validateSQL(fixed); valErr == nil {
-				if c2, r2, e2 := executeSQL(ctx, c.readonlyDB, fixed, storeID); e2 == nil {
+				if c2, r2, e2 := executeSQL(ctx, c.readonlyDB, fixed); e2 == nil {
 					return &SQLResult{
 						SQL:         fixed,
 						Blocked:     false,
@@ -112,7 +102,6 @@ func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *S
 				}
 			}
 		}
-		// Both attempts failed — return original error.
 		return &SQLResult{
 			SQL:         sql,
 			Blocked:     false,
@@ -131,8 +120,34 @@ func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *S
 	}
 }
 
-// generateSQL calls the LLM. repairHint is empty on first attempt; on retry it
-// contains the previous error + bad query so the LLM can correct itself.
+// injectStoreFilters rewrites every FROM/JOIN reference to orders, products, or
+// customers as a filtered subquery. Store isolation is enforced here, never by
+// the LLM.
+//
+// Example:
+//
+//	FROM orders WHERE ordered_at > '2022-01-01'
+//	→ FROM (SELECT * FROM orders WHERE store_id = '<uuid>') AS orders WHERE ordered_at > '2022-01-01'
+func injectStoreFilters(sql, storeID string) string {
+	for _, table := range []string{"orders", "products", "customers"} {
+		// Match: (FROM|JOIN) <table> [AS] [alias]
+		re := regexp.MustCompile(`(?i)\b(FROM|JOIN)\s+` + table + `\b(?:\s+(?:AS\s+)?(\w+))?`)
+		sql = re.ReplaceAllStringFunc(sql, func(match string) string {
+			subs := re.FindStringSubmatch(match)
+			keyword := subs[1]
+			alias := subs[2]
+			if alias == "" || sqlKeywords[strings.ToUpper(alias)] {
+				alias = table
+			}
+			return fmt.Sprintf(`%s (SELECT * FROM %s WHERE store_id = '%s') AS %s`,
+				keyword, table, storeID, alias)
+		})
+	}
+	return sql
+}
+
+// generateSQL calls the LLM. repairHint is empty on first call; on retry it
+// contains the exec error and bad query.
 func (c *Client) generateSQL(ctx context.Context, question, repairHint string) (string, error) {
 	var prompt string
 	if repairHint == "" {
@@ -156,7 +171,6 @@ func (c *Client) generateSQL(ctx context.Context, question, repairHint string) (
 
 func cleanSQL(raw string) string {
 	raw = strings.TrimSpace(raw)
-	// Strip markdown fences
 	if strings.HasPrefix(raw, "```") {
 		lines := strings.Split(raw, "\n")
 		var inner []string
@@ -169,7 +183,6 @@ func cleanSQL(raw string) string {
 		raw = strings.TrimSpace(strings.Join(inner, "\n"))
 	}
 	raw = strings.TrimRight(strings.TrimSpace(raw), ";")
-	// DISTINCT + ORDER BY RANDOM() is illegal in Postgres; strip DISTINCT.
 	upper := strings.ToUpper(raw)
 	if strings.Contains(upper, "SELECT DISTINCT") {
 		raw = raw[:strings.Index(upper, "DISTINCT")] + raw[strings.Index(upper, "DISTINCT")+len("DISTINCT "):]
@@ -179,7 +192,7 @@ func cleanSQL(raw string) string {
 
 func validateSQL(sql string) error {
 	upper := strings.ToUpper(strings.TrimSpace(sql))
-	if !strings.HasPrefix(upper, "SELECT") {
+	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return fmt.Errorf("only SELECT queries are allowed")
 	}
 	for _, kw := range forbiddenKeywords {
@@ -187,19 +200,16 @@ func validateSQL(sql string) error {
 			return fmt.Errorf("forbidden keyword in query: %s", strings.TrimSpace(kw))
 		}
 	}
-	if !strings.Contains(sql, "$1") {
-		return fmt.Errorf("query must filter by store_id ($1 parameter required)")
-	}
 	return nil
 }
 
-func executeSQL(ctx context.Context, db *pgxpool.Pool, sql string, storeID uuid.UUID) ([]string, [][]*string, error) {
+func executeSQL(ctx context.Context, db *pgxpool.Pool, sql string) ([]string, [][]*string, error) {
 	upper := strings.ToUpper(sql)
 	if !strings.Contains(upper, "LIMIT") {
 		sql = sql + " LIMIT 100"
 	}
 
-	rows, err := db.Query(ctx, sql, storeID)
+	rows, err := db.Query(ctx, sql)
 	if err != nil {
 		return nil, nil, err
 	}

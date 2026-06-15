@@ -28,8 +28,8 @@ const METRICS_QUERY = `
 `;
 
 const INSIGHT_QUERY = `
-  query Insight($storeId: ID!) {
-    insight(storeId: $storeId) {
+  query Insight($storeId: ID!, $provider: AIProvider) {
+    insight(storeId: $storeId, provider: $provider) {
       summary
       highlights
       actions
@@ -38,7 +38,7 @@ const INSIGHT_QUERY = `
 `;
 
 export default function DashboardPage() {
-  const { activeStoreId, refreshCount } = useActiveStore();
+  const { activeStoreId, refreshCount, aiProvider } = useActiveStore();
 
   const [metricsResult, reexecuteMetrics] = useQuery({
     query: METRICS_QUERY,
@@ -48,7 +48,7 @@ export default function DashboardPage() {
 
   const [insightResult, reexecuteInsight] = useQuery({
     query: INSIGHT_QUERY,
-    variables: { storeId: activeStoreId },
+    variables: { storeId: activeStoreId, provider: aiProvider },
     pause: !activeStoreId,
   });
 

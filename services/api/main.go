@@ -30,6 +30,9 @@ func main() {
 	dbURL := mustEnv("DATABASE_URL")
 	chatDBURL := envOrDefault("CHAT_DATABASE_URL", dbURL)
 	ollamaURL := envOrDefault("OLLAMA_URL", "http://localhost:11434")
+	ollamaModel := envOrDefault("OLLAMA_MODEL", "llama3.2")
+	lmStudioURL := envOrDefault("LM_STUDIO_URL", "http://host.docker.internal:1234")
+	lmStudioModel := envOrDefault("LM_STUDIO_MODEL", "gemma-4-27b")
 	port := envOrDefault("PORT", "8080")
 	uploadDir := envOrDefault("UPLOAD_DIR", os.TempDir()+"/cartograph-uploads")
 
@@ -62,13 +65,16 @@ func main() {
 	pubsub := db.NewPubSub(pool)
 	pubsub.Listen(ctx, "import_progress")
 
-	aiClient := ai.NewClient(ollamaURL, chatPool)
+	providers := map[string]*ai.Client{
+		"OLLAMA":   ai.NewClient(ollamaURL, ollamaModel, chatPool),
+		"LMSTUDIO": ai.NewClient(lmStudioURL, lmStudioModel, chatPool),
+	}
 
 	resolver := &graph.Resolver{
-		DB:       pool,
-		ChatDB:   chatPool,
-		AIClient: aiClient,
-		PubSub:   pubsub,
+		DB:        pool,
+		ChatDB:    chatPool,
+		Providers: providers,
+		PubSub:    pubsub,
 	}
 
 	srv := handler.New(generated.NewExecutableSchema(generated.Config{

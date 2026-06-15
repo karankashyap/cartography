@@ -109,8 +109,9 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		Ask             func(childComplexity int, storeID string, question string) int
-		GenerateContent func(childComplexity int, productIds []string, kind model.ContentKind) int
+		Ask             func(childComplexity int, storeID string, question string, provider *model.AIProvider) int
+		DeleteStore     func(childComplexity int, storeID string) int
+		GenerateContent func(childComplexity int, productIds []string, kind model.ContentKind, provider *model.AIProvider) int
 		ImportStore     func(childComplexity int, filename string, platform model.Platform) int
 	}
 
@@ -132,7 +133,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		ImportJob      func(childComplexity int, id string) int
-		Insight        func(childComplexity int, storeID string, from *time.Time, to *time.Time) int
+		Insight        func(childComplexity int, storeID string, from *time.Time, to *time.Time, provider *model.AIProvider) int
 		Metrics        func(childComplexity int, storeID string, from *time.Time, to *time.Time, platform *model.Platform) int
 		SearchProducts func(childComplexity int, storeID string, query string, limit *int) int
 		Stores         func(childComplexity int) int
@@ -175,13 +176,14 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	ImportStore(ctx context.Context, filename string, platform model.Platform) (*model.ImportJob, error)
-	Ask(ctx context.Context, storeID string, question string) (*model.ChatAnswer, error)
-	GenerateContent(ctx context.Context, productIds []string, kind model.ContentKind) ([]*model.GeneratedContent, error)
+	DeleteStore(ctx context.Context, storeID string) (bool, error)
+	Ask(ctx context.Context, storeID string, question string, provider *model.AIProvider) (*model.ChatAnswer, error)
+	GenerateContent(ctx context.Context, productIds []string, kind model.ContentKind, provider *model.AIProvider) ([]*model.GeneratedContent, error)
 }
 type QueryResolver interface {
 	Stores(ctx context.Context) ([]*model.Store, error)
 	Metrics(ctx context.Context, storeID string, from *time.Time, to *time.Time, platform *model.Platform) (*model.Metrics, error)
-	Insight(ctx context.Context, storeID string, from *time.Time, to *time.Time) (*model.Insight, error)
+	Insight(ctx context.Context, storeID string, from *time.Time, to *time.Time, provider *model.AIProvider) (*model.Insight, error)
 	SearchProducts(ctx context.Context, storeID string, query string, limit *int) ([]*model.Product, error)
 	ImportJob(ctx context.Context, id string) (*model.ImportJob, error)
 }
@@ -505,7 +507,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.Ask(childComplexity, args["storeId"].(string), args["question"].(string)), true
+		return e.complexity.Mutation.Ask(childComplexity, args["storeId"].(string), args["question"].(string), args["provider"].(*model.AIProvider)), true
+
+	case "Mutation.deleteStore":
+		if e.complexity.Mutation.DeleteStore == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteStore_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteStore(childComplexity, args["storeId"].(string)), true
 
 	case "Mutation.generateContent":
 		if e.complexity.Mutation.GenerateContent == nil {
@@ -517,7 +531,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.GenerateContent(childComplexity, args["productIds"].([]string), args["kind"].(model.ContentKind)), true
+		return e.complexity.Mutation.GenerateContent(childComplexity, args["productIds"].([]string), args["kind"].(model.ContentKind), args["provider"].(*model.AIProvider)), true
 
 	case "Mutation.importStore":
 		if e.complexity.Mutation.ImportStore == nil {
@@ -623,7 +637,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Insight(childComplexity, args["storeId"].(string), args["from"].(*time.Time), args["to"].(*time.Time)), true
+		return e.complexity.Query.Insight(childComplexity, args["storeId"].(string), args["from"].(*time.Time), args["to"].(*time.Time), args["provider"].(*model.AIProvider)), true
 
 	case "Query.metrics":
 		if e.complexity.Query.Metrics == nil {
@@ -1030,15 +1044,21 @@ type Product {
 type Query {
   stores: [Store!]!
   metrics(storeId: ID!, from: DateTime, to: DateTime, platform: Platform): Metrics!
-  insight(storeId: ID!, from: DateTime, to: DateTime): Insight!
+  insight(storeId: ID!, from: DateTime, to: DateTime, provider: AIProvider): Insight!
   searchProducts(storeId: ID!, query: String!, limit: Int): [Product!]!
   importJob(id: ID!): ImportJob
 }
 
+enum AIProvider {
+  OLLAMA
+  LMSTUDIO
+}
+
 type Mutation {
   importStore(filename: String!, platform: Platform!): ImportJob!
-  ask(storeId: ID!, question: String!): ChatAnswer!
-  generateContent(productIds: [ID!]!, kind: ContentKind!): [GeneratedContent!]!
+  deleteStore(storeId: ID!): Boolean!
+  ask(storeId: ID!, question: String!, provider: AIProvider): ChatAnswer!
+  generateContent(productIds: [ID!]!, kind: ContentKind!, provider: AIProvider): [GeneratedContent!]!
 }
 
 type Subscription {
@@ -1073,6 +1093,30 @@ func (ec *executionContext) field_Mutation_ask_args(ctx context.Context, rawArgs
 		}
 	}
 	args["question"] = arg1
+	var arg2 *model.AIProvider
+	if tmp, ok := rawArgs["provider"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("provider"))
+		arg2, err = ec.unmarshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["provider"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteStore_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["storeId"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("storeId"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["storeId"] = arg0
 	return args, nil
 }
 
@@ -1097,6 +1141,15 @@ func (ec *executionContext) field_Mutation_generateContent_args(ctx context.Cont
 		}
 	}
 	args["kind"] = arg1
+	var arg2 *model.AIProvider
+	if tmp, ok := rawArgs["provider"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("provider"))
+		arg2, err = ec.unmarshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["provider"] = arg2
 	return args, nil
 }
 
@@ -1184,6 +1237,15 @@ func (ec *executionContext) field_Query_insight_args(ctx context.Context, rawArg
 		}
 	}
 	args["to"] = arg2
+	var arg3 *model.AIProvider
+	if tmp, ok := rawArgs["provider"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("provider"))
+		arg3, err = ec.unmarshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["provider"] = arg3
 	return args, nil
 }
 
@@ -3244,6 +3306,61 @@ func (ec *executionContext) fieldContext_Mutation_importStore(ctx context.Contex
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_deleteStore(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deleteStore(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteStore(rctx, fc.Args["storeId"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteStore(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteStore_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_ask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_ask(ctx, field)
 	if err != nil {
@@ -3258,7 +3375,7 @@ func (ec *executionContext) _Mutation_ask(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Ask(rctx, fc.Args["storeId"].(string), fc.Args["question"].(string))
+		return ec.resolvers.Mutation().Ask(rctx, fc.Args["storeId"].(string), fc.Args["question"].(string), fc.Args["provider"].(*model.AIProvider))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3329,7 +3446,7 @@ func (ec *executionContext) _Mutation_generateContent(ctx context.Context, field
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().GenerateContent(rctx, fc.Args["productIds"].([]string), fc.Args["kind"].(model.ContentKind))
+		return ec.resolvers.Mutation().GenerateContent(rctx, fc.Args["productIds"].([]string), fc.Args["kind"].(model.ContentKind), fc.Args["provider"].(*model.AIProvider))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3960,7 +4077,7 @@ func (ec *executionContext) _Query_insight(ctx context.Context, field graphql.Co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Insight(rctx, fc.Args["storeId"].(string), fc.Args["from"].(*time.Time), fc.Args["to"].(*time.Time))
+		return ec.resolvers.Query().Insight(rctx, fc.Args["storeId"].(string), fc.Args["from"].(*time.Time), fc.Args["to"].(*time.Time), fc.Args["provider"].(*model.AIProvider))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7360,6 +7477,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "deleteStore":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteStore(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "ask":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_ask(ctx, field)
@@ -9210,6 +9334,22 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx context.Context, v interface{}) (*model.AIProvider, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.AIProvider)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx context.Context, sel ast.SelectionSet, v *model.AIProvider) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v interface{}) (bool, error) {

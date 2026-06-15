@@ -38,6 +38,9 @@ services:
       DATABASE_URL: "postgres://cartograph:cartograph@db:5432/cartograph?sslmode=disable"
       CHAT_DATABASE_URL: "postgres://cartograph_chat:cartograph_chat_secret@db:5432/cartograph?sslmode=disable"
       OLLAMA_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
+      LM_STUDIO_URL: "${LM_STUDIO_URL:-http://host.docker.internal:1234}"
+      LM_STUDIO_MODEL: "${LM_STUDIO_MODEL:-gemma-4-27b}"
       PORT: "8080"
       UPLOAD_DIR: "/data/uploads"
     volumes:

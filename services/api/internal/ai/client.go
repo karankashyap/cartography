@@ -12,23 +12,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const defaultModel = "llama3.2"
-
-// Client wraps the Ollama OpenAI-compatible API.
+// Client wraps any OpenAI-compatible chat completion API (Ollama, LM Studio, etc.).
 type Client struct {
-	ollamaURL  string
+	baseURL    string
 	model      string
 	httpClient *http.Client
 	readonlyDB *pgxpool.Pool
 }
 
-// OllamaURL returns the configured Ollama endpoint URL.
-func (c *Client) OllamaURL() string { return c.ollamaURL }
-
-func NewClient(ollamaURL string, readonlyDB *pgxpool.Pool) *Client {
+func NewClient(baseURL, model string, readonlyDB *pgxpool.Pool) *Client {
 	return &Client{
-		ollamaURL:  ollamaURL,
-		model:      defaultModel,
+		baseURL:    baseURL,
+		model:      model,
 		httpClient: &http.Client{Timeout: 120 * time.Second},
 		readonlyDB: readonlyDB,
 	}
@@ -52,6 +47,8 @@ type chatResponse struct {
 	} `json:"choices"`
 }
 
+func (c *Client) BaseURL() string { return c.baseURL }
+
 func (c *Client) complete(ctx context.Context, prompt string, temperature float64) (string, error) {
 	reqBody := chatRequest{
 		Model: c.model,
@@ -68,7 +65,7 @@ func (c *Client) complete(ctx context.Context, prompt string, temperature float6
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.ollamaURL+"/v1/chat/completions", bytes.NewReader(data))
+		c.baseURL+"/v1/chat/completions", bytes.NewReader(data))
 	if err != nil {
 		return "", err
 	}
@@ -86,15 +83,15 @@ func (c *Client) complete(ctx context.Context, prompt string, temperature float6
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("llm api %d: %s", resp.StatusCode, string(body))
 	}
 
 	var chatResp chatResponse
 	if err := json.Unmarshal(body, &chatResp); err != nil {
-		return "", fmt.Errorf("parse ollama response: %w", err)
+		return "", fmt.Errorf("parse llm response: %w", err)
 	}
 	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("empty response from ollama")
+		return "", fmt.Errorf("empty response from llm")
 	}
 	return chatResp.Choices[0].Message.Content, nil
 }

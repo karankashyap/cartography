@@ -6,6 +6,7 @@ import { Loader2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductPicker } from "@/components/content/ProductPicker";
 import { ContentEditor } from "@/components/content/ContentEditor";
+import { useActiveStore } from "@/lib/active-store";
 
 const STORES_QUERY = `
   query Stores {
@@ -23,8 +24,8 @@ const PRODUCTS_BY_IDS_QUERY = `
 `;
 
 const GENERATE_MUTATION = `
-  mutation GenerateContent($productIds: [ID!]!, $kind: ContentKind!) {
-    generateContent(productIds: $productIds, kind: $kind) {
+  mutation GenerateContent($productIds: [ID!]!, $kind: ContentKind!, $provider: AIProvider) {
+    generateContent(productIds: $productIds, kind: $kind, provider: $provider) {
       productId
       kind
       content
@@ -53,6 +54,7 @@ const KIND_LABELS: Record<ContentKind, string> = {
 };
 
 export default function ContentPage() {
+  const { aiProvider } = useActiveStore();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [kind, setKind] = useState<ContentKind>("DESCRIPTION");
@@ -79,7 +81,7 @@ export default function ContentPage() {
 
   async function handleGenerate() {
     if (selectedIds.length === 0 || loading) return;
-    const result = await generate({ productIds: selectedIds, kind });
+    const result = await generate({ productIds: selectedIds, kind, provider: aiProvider });
     if (result.data?.generateContent) {
       setResults(result.data.generateContent as GeneratedContent[]);
     }

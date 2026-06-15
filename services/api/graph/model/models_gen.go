@@ -123,6 +123,47 @@ type VelocityStat struct {
 	InventoryQty   int     `json:"inventoryQty"`
 }
 
+type AIProvider string
+
+const (
+	AIProviderOllama   AIProvider = "OLLAMA"
+	AIProviderLmstudio AIProvider = "LMSTUDIO"
+)
+
+var AllAIProvider = []AIProvider{
+	AIProviderOllama,
+	AIProviderLmstudio,
+}
+
+func (e AIProvider) IsValid() bool {
+	switch e {
+	case AIProviderOllama, AIProviderLmstudio:
+		return true
+	}
+	return false
+}
+
+func (e AIProvider) String() string {
+	return string(e)
+}
+
+func (e *AIProvider) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = AIProvider(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid AIProvider", str)
+	}
+	return nil
+}
+
+func (e AIProvider) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
 type ContentKind string
 
 const (

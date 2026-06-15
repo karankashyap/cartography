@@ -40,14 +40,27 @@ func (r *mutationResolver) ImportStore(ctx context.Context, filename string, pla
 	}, nil
 }
 
+// DeleteStore is the resolver for the deleteStore field.
+func (r *mutationResolver) DeleteStore(ctx context.Context, storeID string) (bool, error) {
+	sid, err := uuid.Parse(storeID)
+	if err != nil {
+		return false, fmt.Errorf("invalid storeId: %w", err)
+	}
+	tag, err := r.DB.Exec(ctx, `DELETE FROM stores WHERE id = $1`, sid)
+	if err != nil {
+		return false, fmt.Errorf("delete store: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // Ask is the resolver for the ask field.
-func (r *mutationResolver) Ask(ctx context.Context, storeID string, question string) (*model.ChatAnswer, error) {
+func (r *mutationResolver) Ask(ctx context.Context, storeID string, question string, provider *model.AIProvider) (*model.ChatAnswer, error) {
 	sid, err := uuid.Parse(storeID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid storeId: %w", err)
 	}
 
-	res := r.AIClient.Ask(ctx, sid, question)
+	res := r.aiClient(provider).Ask(ctx, sid, question)
 
 	// Log best-effort — don't fail the request if audit log insert fails.
 	_, _ = r.DB.Exec(ctx, `
@@ -76,13 +89,13 @@ func (r *mutationResolver) Ask(ctx context.Context, storeID string, question str
 }
 
 // GenerateContent is the resolver for the generateContent field.
-func (r *mutationResolver) GenerateContent(ctx context.Context, productIds []string, kind model.ContentKind) ([]*model.GeneratedContent, error) {
+func (r *mutationResolver) GenerateContent(ctx context.Context, productIds []string, kind model.ContentKind, provider *model.AIProvider) ([]*model.GeneratedContent, error) {
 	products, err := fetchProductsForContent(ctx, r.DB, productIds)
 	if err != nil {
 		return nil, err
 	}
 
-	results, err := r.AIClient.GenerateContent(ctx, products, string(kind))
+	results, err := r.aiClient(provider).GenerateContent(ctx, products, string(kind))
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +156,7 @@ func (r *queryResolver) Metrics(ctx context.Context, storeID string, from *time.
 }
 
 // Insight is the resolver for the insight field.
-func (r *queryResolver) Insight(ctx context.Context, storeID string, from *time.Time, to *time.Time) (*model.Insight, error) {
+func (r *queryResolver) Insight(ctx context.Context, storeID string, from *time.Time, to *time.Time, provider *model.AIProvider) (*model.Insight, error) {
 	sid, err := uuid.Parse(storeID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid storeId: %w", err)
@@ -162,7 +175,7 @@ func (r *queryResolver) Insight(ctx context.Context, storeID string, from *time.
 		return nil, err
 	}
 
-	out, _ := r.AIClient.GenerateNarrative(ctx, ai.NarrativeInput{
+	out, _ := r.aiClient(provider).GenerateNarrative(ctx, ai.NarrativeInput{
 		Metrics: m,
 		From:    f.From.Format("2006-01-02"),
 		To:      f.To.Format("2006-01-02"),
@@ -189,7 +202,7 @@ func (r *queryResolver) SearchProducts(ctx context.Context, storeID string, quer
 		lim = *limit
 	}
 
-	results, err := analytics.SearchProducts(ctx, r.DB, r.AIClient.OllamaURL(), sid, query, lim)
+	results, err := analytics.SearchProducts(ctx, r.DB, r.Providers[string(model.AIProviderOllama)].BaseURL(), sid, query, lim)
 	if err != nil {
 		return nil, err
 	}
