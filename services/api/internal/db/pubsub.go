@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 
@@ -48,7 +47,7 @@ func (p *PubSub) Subscribe(channel string) (<-chan string, func()) {
 
 // Notify sends a payload on a Postgres channel.
 func (p *PubSub) Notify(ctx context.Context, channel, payload string) error {
-	_, err := p.pool.Exec(ctx, fmt.Sprintf("SELECT pg_notify($1, $2)"), channel, payload)
+	_, err := p.pool.Exec(ctx, "SELECT pg_notify($1, $2)", channel, payload)
 	return err
 }
 
