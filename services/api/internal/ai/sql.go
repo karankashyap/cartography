@@ -27,7 +27,8 @@ const sqlRules = `STRICT RULES:
    For running totals: GROUP BY in a subquery, window function in the outer SELECT.
 4. Date ranges: ordered_at >= 'YYYY-01-01' AND ordered_at < 'YYYY+1-01-01'
 5. DISTINCT + ORDER BY RANDOM() is illegal — omit DISTINCT when ordering randomly.
-6. Add LIMIT 100 unless the question asks for a total or exact count.`
+6. Add LIMIT 100 unless the question asks for a total or exact count.
+7. COUNT(DISTINCT x) OVER (...) is NOT valid PostgreSQL — use COUNT(x) OVER or a subquery with GROUP BY instead.`
 
 var forbiddenKeywords = []string{
 	"INSERT ", "UPDATE ", "DELETE ", "DROP ", "CREATE ", "TRUNCATE ",
@@ -130,17 +131,31 @@ func (c *Client) Ask(ctx context.Context, storeID uuid.UUID, question string) *S
 //	→ FROM (SELECT * FROM orders WHERE store_id = '<uuid>') AS orders WHERE ordered_at > '2022-01-01'
 func injectStoreFilters(sql, storeID string) string {
 	for _, table := range []string{"orders", "products", "customers"} {
-		// Match: (FROM|JOIN) <table> [AS] [alias]
-		re := regexp.MustCompile(`(?i)\b(FROM|JOIN)\s+` + table + `\b(?:\s+(?:AS\s+)?(\w+))?`)
+		// Groups: 1=FROM|JOIN, 2=" AS alias"(full), 3=alias(explicit), 4=" word"(full), 5=word(implicit)
+		// Explicit AS alias takes priority; bare word alias checked against sqlKeywords.
+		// If the bare word is a keyword (e.g. WHERE) it must be put back in the output.
+		re := regexp.MustCompile(`(?i)\b(FROM|JOIN)\s+` + table + `\b(?:(\s+AS\s+(\w+))|(\s+(\w+)))?`)
 		sql = re.ReplaceAllStringFunc(sql, func(match string) string {
 			subs := re.FindStringSubmatch(match)
 			keyword := subs[1]
-			alias := subs[2]
-			if alias == "" || sqlKeywords[strings.ToUpper(alias)] {
+			var alias, suffix string
+			switch {
+			case subs[3] != "": // explicit AS alias
+				alias = subs[3]
+			case subs[5] != "": // bare word — alias or SQL keyword
+				if sqlKeywords[strings.ToUpper(subs[5])] {
+					// It's a keyword (WHERE, GROUP, etc.) — not an alias.
+					// Put the captured text back so it isn't dropped.
+					alias = table
+					suffix = subs[4] // e.g. " WHERE"
+				} else {
+					alias = subs[5]
+				}
+			default:
 				alias = table
 			}
-			return fmt.Sprintf(`%s (SELECT * FROM %s WHERE store_id = '%s') AS %s`,
-				keyword, table, storeID, alias)
+			return fmt.Sprintf(`%s (SELECT * FROM %s WHERE store_id = '%s') AS %s%s`,
+				keyword, table, storeID, alias, suffix)
 		})
 	}
 	return sql
