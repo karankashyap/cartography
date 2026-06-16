@@ -54,13 +54,20 @@ func (r *mutationResolver) DeleteStore(ctx context.Context, storeID string) (boo
 }
 
 // Ask is the resolver for the ask field.
-func (r *mutationResolver) Ask(ctx context.Context, storeID string, question string, provider *model.AIProvider) (*model.ChatAnswer, error) {
+func (r *mutationResolver) Ask(ctx context.Context, storeID string, question string, history []*model.ChatTurn, provider *model.AIProvider) (*model.ChatAnswer, error) {
 	sid, err := uuid.Parse(storeID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid storeId: %w", err)
 	}
 
-	res := r.aiClient(provider).Ask(ctx, sid, question)
+	aiHistory := make([]ai.HistoryTurn, 0, len(history))
+	for _, h := range history {
+		if h != nil {
+			aiHistory = append(aiHistory, ai.HistoryTurn{Question: h.Question, SQL: h.SQL})
+		}
+	}
+
+	res := r.aiClient(provider).Ask(ctx, sid, question, aiHistory)
 
 	// Log best-effort — don't fail the request if audit log insert fails.
 	_, _ = r.DB.Exec(ctx, `

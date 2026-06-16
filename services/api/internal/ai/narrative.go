@@ -47,11 +47,15 @@ Rules:
 - actions: exactly 3 concrete recommended actions
 - every number you mention MUST appear in the metrics JSON above`, string(metricsJSON), in.From, in.To)
 
-	raw, err := c.complete(ctx, prompt, 0.3)
+	msgs := []chatMessage{
+		{Role: "system", Content: "You are an e-commerce analyst. Output ONLY valid JSON — no markdown, no explanation, no preamble."},
+		{Role: "user", Content: prompt},
+	}
+	raw, err := c.complete(ctx, msgs, 0.3, 0)
 	if err != nil {
-		// V6: Ollama unavailable — return empty insight, let dashboard still render
+		// V6: AI provider unavailable — return empty insight, let dashboard still render
 		return &NarrativeOutput{
-			Summary:    "AI insights unavailable. Ensure Ollama is running.",
+			Summary:    "AI insights unavailable. Check that your AI provider is running and accessible.",
 			Highlights: []string{},
 			Actions:    []string{},
 		}, nil

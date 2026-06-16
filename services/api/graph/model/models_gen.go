@@ -19,6 +19,11 @@ type ChatAnswer struct {
 	Explanation string      `json:"explanation"`
 }
 
+type ChatTurn struct {
+	Question string `json:"question"`
+	SQL      string `json:"sql"`
+}
+
 type CohortRow struct {
 	CohortMonth   string  `json:"cohortMonth"`
 	ActivityMonth string  `json:"activityMonth"`

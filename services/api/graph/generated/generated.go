@@ -109,7 +109,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		Ask             func(childComplexity int, storeID string, question string, provider *model.AIProvider) int
+		Ask             func(childComplexity int, storeID string, question string, history []*model.ChatTurn, provider *model.AIProvider) int
 		DeleteStore     func(childComplexity int, storeID string) int
 		GenerateContent func(childComplexity int, productIds []string, kind model.ContentKind, provider *model.AIProvider) int
 		ImportStore     func(childComplexity int, filename string, platform model.Platform) int
@@ -177,7 +177,7 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	ImportStore(ctx context.Context, filename string, platform model.Platform) (*model.ImportJob, error)
 	DeleteStore(ctx context.Context, storeID string) (bool, error)
-	Ask(ctx context.Context, storeID string, question string, provider *model.AIProvider) (*model.ChatAnswer, error)
+	Ask(ctx context.Context, storeID string, question string, history []*model.ChatTurn, provider *model.AIProvider) (*model.ChatAnswer, error)
 	GenerateContent(ctx context.Context, productIds []string, kind model.ContentKind, provider *model.AIProvider) ([]*model.GeneratedContent, error)
 }
 type QueryResolver interface {
@@ -507,7 +507,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.Ask(childComplexity, args["storeId"].(string), args["question"].(string), args["provider"].(*model.AIProvider)), true
+		return e.complexity.Mutation.Ask(childComplexity, args["storeId"].(string), args["question"].(string), args["history"].([]*model.ChatTurn), args["provider"].(*model.AIProvider)), true
 
 	case "Mutation.deleteStore":
 		if e.complexity.Mutation.DeleteStore == nil {
@@ -815,7 +815,9 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e, 0, 0, make(chan graphql.DeferredResult)}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputChatTurn,
+	)
 	first := true
 
 	switch rc.Operation.Operation {
@@ -1054,10 +1056,15 @@ enum AIProvider {
   LMSTUDIO
 }
 
+input ChatTurn {
+  question: String!
+  sql: String!
+}
+
 type Mutation {
   importStore(filename: String!, platform: Platform!): ImportJob!
   deleteStore(storeId: ID!): Boolean!
-  ask(storeId: ID!, question: String!, provider: AIProvider): ChatAnswer!
+  ask(storeId: ID!, question: String!, history: [ChatTurn!], provider: AIProvider): ChatAnswer!
   generateContent(productIds: [ID!]!, kind: ContentKind!, provider: AIProvider): [GeneratedContent!]!
 }
 
@@ -1093,15 +1100,24 @@ func (ec *executionContext) field_Mutation_ask_args(ctx context.Context, rawArgs
 		}
 	}
 	args["question"] = arg1
-	var arg2 *model.AIProvider
-	if tmp, ok := rawArgs["provider"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("provider"))
-		arg2, err = ec.unmarshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx, tmp)
+	var arg2 []*model.ChatTurn
+	if tmp, ok := rawArgs["history"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("history"))
+		arg2, err = ec.unmarshalOChatTurn2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐChatTurnᚄ(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["provider"] = arg2
+	args["history"] = arg2
+	var arg3 *model.AIProvider
+	if tmp, ok := rawArgs["provider"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("provider"))
+		arg3, err = ec.unmarshalOAIProvider2ᚖcartographᚋapiᚋgraphᚋmodelᚐAIProvider(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["provider"] = arg3
 	return args, nil
 }
 
@@ -3375,7 +3391,7 @@ func (ec *executionContext) _Mutation_ask(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Ask(rctx, fc.Args["storeId"].(string), fc.Args["question"].(string), fc.Args["provider"].(*model.AIProvider))
+		return ec.resolvers.Mutation().Ask(rctx, fc.Args["storeId"].(string), fc.Args["question"].(string), fc.Args["history"].([]*model.ChatTurn), fc.Args["provider"].(*model.AIProvider))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7052,6 +7068,40 @@ func (ec *executionContext) fieldContext___Type_specifiedByURL(_ context.Context
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputChatTurn(ctx context.Context, obj interface{}) (model.ChatTurn, error) {
+	var it model.ChatTurn
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"question", "sql"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "question":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("question"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Question = data
+		case "sql":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sql"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SQL = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -8382,6 +8432,11 @@ func (ec *executionContext) marshalNChatAnswer2ᚖcartographᚋapiᚋgraphᚋmod
 	return ec._ChatAnswer(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNChatTurn2ᚖcartographᚋapiᚋgraphᚋmodelᚐChatTurn(ctx context.Context, v interface{}) (*model.ChatTurn, error) {
+	res, err := ec.unmarshalInputChatTurn(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNCohortRow2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐCohortRowᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CohortRow) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -9376,6 +9431,26 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	}
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOChatTurn2ᚕᚖcartographᚋapiᚋgraphᚋmodelᚐChatTurnᚄ(ctx context.Context, v interface{}) ([]*model.ChatTurn, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.ChatTurn, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNChatTurn2ᚖcartographᚋapiᚋgraphᚋmodelᚐChatTurn(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (ec *executionContext) unmarshalODateTime2ᚖtimeᚐTime(ctx context.Context, v interface{}) (*time.Time, error) {

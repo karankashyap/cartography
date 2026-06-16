@@ -24,7 +24,7 @@ func NewClient(baseURL, model string, readonlyDB *pgxpool.Pool) *Client {
 	return &Client{
 		baseURL:    baseURL,
 		model:      model,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: &http.Client{Timeout: 600 * time.Second},
 		readonlyDB: readonlyDB,
 	}
 }
@@ -39,6 +39,7 @@ type chatRequest struct {
 	Messages    []chatMessage `json:"messages"`
 	Temperature float64       `json:"temperature"`
 	Stream      bool          `json:"stream"`
+	MaxTokens   int           `json:"max_tokens,omitempty"` // 0 = omit (no limit)
 }
 
 type chatResponse struct {
@@ -49,14 +50,16 @@ type chatResponse struct {
 
 func (c *Client) BaseURL() string { return c.baseURL }
 
-func (c *Client) complete(ctx context.Context, prompt string, temperature float64) (string, error) {
+// complete sends a fully-constructed message array to the LLM.
+// maxTokens = 0 means no cap (suitable for long-form content).
+// Callers are responsible for building the correct system/user/assistant sequence.
+func (c *Client) complete(ctx context.Context, messages []chatMessage, temperature float64, maxTokens int) (string, error) {
 	reqBody := chatRequest{
-		Model: c.model,
-		Messages: []chatMessage{
-			{Role: "user", Content: prompt},
-		},
+		Model:       c.model,
+		Messages:    messages,
 		Temperature: temperature,
 		Stream:      false,
+		MaxTokens:   maxTokens,
 	}
 
 	data, err := json.Marshal(reqBody)
@@ -73,7 +76,7 @@ func (c *Client) complete(ctx context.Context, prompt string, temperature float6
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("ollama request: %w", err)
+		return "", fmt.Errorf("llm request failed: %w", err)
 	}
 	defer resp.Body.Close()
 

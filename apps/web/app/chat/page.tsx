@@ -8,8 +8,8 @@ import { ChatMessage, type ChatEntry } from "@/components/chat/ChatMessage";
 import { useActiveStore } from "@/lib/active-store";
 
 const ASK_MUTATION = `
-  mutation Ask($storeId: ID!, $question: String!, $provider: AIProvider) {
-    ask(storeId: $storeId, question: $question, provider: $provider) {
+  mutation Ask($storeId: ID!, $question: String!, $history: [ChatTurn!], $provider: AIProvider) {
+    ask(storeId: $storeId, question: $question, history: $history, provider: $provider) {
       question
       sql
       blocked
@@ -56,7 +56,15 @@ export default function ChatPage() {
       },
     ]);
 
-    const result = await ask({ storeId: activeStoreId, question, provider: aiProvider });
+    // Build history from the last 5 successful (non-blocked, non-pending) turns.
+    // These are sent as prior user/assistant context so the model can handle
+    // follow-up questions without the schema being re-included in every user message.
+    const history = messages
+      .filter((m) => !m.pending && !m.blocked && m.sql)
+      .slice(-5)
+      .map((m) => ({ question: m.question, sql: m.sql }));
+
+    const result = await ask({ storeId: activeStoreId, question, history, provider: aiProvider });
 
     setMessages((prev) => {
       const rest = prev.filter((m) => m.id !== pendingId);

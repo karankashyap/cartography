@@ -123,10 +123,15 @@ enum AIProvider {
   LMSTUDIO
 }
 
+input ChatTurn {
+  question: String!
+  sql: String!
+}
+
 type Mutation {
   importStore(filename: String!, platform: Platform!): ImportJob!
   deleteStore(storeId: ID!): Boolean!
-  ask(storeId: ID!, question: String!, provider: AIProvider): ChatAnswer!
+  ask(storeId: ID!, question: String!, history: [ChatTurn!], provider: AIProvider): ChatAnswer!
   generateContent(productIds: [ID!]!, kind: ContentKind!, provider: AIProvider): [GeneratedContent!]!
 }
 

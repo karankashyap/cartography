@@ -108,7 +108,11 @@ Requirements:
 		return "", fmt.Errorf("unknown content kind: %s", kind)
 	}
 
-	raw, err := c.complete(ctx, prompt, temperature)
+	msgs := []chatMessage{
+		{Role: "system", Content: "You are an expert e-commerce copywriter. Be concise and precise. Output only what is requested — no preamble, no labels, no explanation."},
+		{Role: "user", Content: prompt},
+	}
+	raw, err := c.complete(ctx, msgs, temperature, 0)
 	if err != nil {
 		return "", err
 	}
