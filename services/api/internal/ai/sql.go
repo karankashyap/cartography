@@ -35,7 +35,7 @@ const sqlRules = `STRICT RULES:
 // Schema and rules are here so they appear once at the top of the conversation,
 // not repeated in every user message.
 var sqlSystemPrompt = fmt.Sprintf(
-	"Think briefly. Answer quickly. Output ONLY the raw SQL query — no markdown, no explanation, no preamble.\n\nYou are a PostgreSQL expert for an e-commerce analytics platform.\n\nSCHEMA:\n%s\n\n%s",
+	"Think briefly. Answer quickly. Output ONLY the raw SQL query — no markdown, no explanation, no preamble. \n\nBe concise. Avoid repeating context. Minimize Prose. \n\nYou are a PostgreSQL expert for an e-commerce analytics platform.\n\nSCHEMA:\n%s\n\n%s",
 	sqlSchema, sqlRules,
 )
 

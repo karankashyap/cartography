@@ -10,11 +10,16 @@ docker compose -f deploy/docker-compose.yml up
 # drag sample-data/shopify_orders.csv onto the import panel
 ```
 
+## Demo
+
+https://github.com/user-attachments/assets/4fd258ff-eaad-4c38-aa8a-e19e7d75da54
+
 ## Features
 
 - **Analytics dashboard** — revenue, AOV, cohort retention, dead stock, inventory velocity
 - **AI narrative** — grounded insights, zero hallucinated numbers (V3: only pre-computed metrics passed to LLM)
-- **Text-to-SQL chat** — safe read-only queries, 6-layer guardrail suite
+- **Text-to-SQL chat** — multi-turn conversation history, safe read-only queries, 6-layer guardrail suite
+- **AI provider switching** — Ollama (fully local) or LM Studio (Gemma 4 / any OpenAI-compatible server)
 - **Content studio** — product descriptions, SEO copy, email campaigns
 - **Semantic product search** — pgvector + HNSW index via `nomic-embed-text` embeddings
 - **Expo mobile dashboard** — React Native metrics + charts
@@ -27,7 +32,8 @@ graph TD
   Browser["Browser :3000"] -->|GraphQL / WS| API["Go API :8080\ngqlgen + pgx"]
   Mobile["Expo Mobile"] -->|GraphQL| API
   API -->|SQL| DB["Postgres 16\n+ pgvector"]
-  API -->|HTTP| Ollama["Ollama :11434\nllama3.2 / mistral"]
+  API -->|HTTP| Ollama["Ollama :11434\nllama3.2 (default)"]
+  API -->|HTTP| LMStudio["LM Studio :1234\nGemma 4 / any model"]
   Worker["Go Worker"] -->|embed jobs| DB
   Worker -->|embed model| Ollama
   CSV["CSV Upload\nShopify / Amazon / Woo"] -->|parse + upsert| Worker
@@ -38,24 +44,45 @@ graph TD
 | Layer | Tech |
 |---|---|
 | API | Go 1.22 · gqlgen · pgx/v5 |
-| LLM | Ollama (llama3.2) — fully local |
+| LLM | Ollama (llama3.2) · LM Studio (Gemma 4) — fully local, OpenAI-compatible |
 | Database | Postgres 16 + pgvector + pg_trgm |
 | Web | Next.js 14 (App Router) · Tailwind · urql |
 | Mobile | Expo SDK 56 · victory-native |
 | Monorepo | Turborepo + pnpm workspaces |
 | Infra | Docker Compose — single `up` to run everything |
 
+## AI providers
+
+Cartograph supports two local LLM providers, switchable per-request from the UI dropdown.
+
+| Provider | Default model | Use case |
+|---|---|---|
+| Ollama | `llama3.2` | Fast, lightweight, runs anywhere |
+| LM Studio | `gemma-4-27b` | Higher accuracy, requires GPU |
+
+Override via environment variables in `deploy/.env`:
+
+```env
+OLLAMA_URL=http://host.docker.internal:11434
+OLLAMA_MODEL=llama3.2
+
+LM_STUDIO_URL=http://host.docker.internal:1234
+LM_STUDIO_MODEL=gemma-4-27b
+```
+
+> LM Studio must be set to listen on `0.0.0.0` (not `127.0.0.1`) for Docker to reach it via `host.docker.internal`.
+
 ## Security: Text-to-SQL
 
-LLM proposes, deterministic Go disposes.
+LLM proposes, deterministic Go disposes. Store isolation is enforced server-side — the LLM never sees or sets `store_id`.
 
 ```
 Layer 1: keyword blocklist        — rejects INSERT/UPDATE/DELETE/DROP/…
-Layer 2: pg_query AST parse       — rejects malformed SQL
-Layer 3: single SELECT only       — rejects multi-statement
-Layer 4: allow-list tables        — rejects access to system tables
-Layer 5: LIMIT injection          — caps result set at 500 rows
-Layer 6: read-only Postgres role  — cartograph_chat user: SELECT only, no writes physically possible
+Layer 2: statement type check     — rejects anything that is not SELECT or WITH
+Layer 3: read-only Postgres role  — cartograph_chat user: SELECT only, no writes physically possible
+Layer 4: store filter injection   — server rewrites FROM/JOIN to filtered subquery before execution
+Layer 5: LIMIT injection          — caps result set at 100 rows
+Layer 6: repair loop              — on exec error, sends failed SQL + Postgres error back to LLM for one retry
 ```
 
 Full test suite: 20+ malicious inputs, all blocked. See [`services/api/internal/ai/sql_test.go`](services/api/internal/ai/sql_test.go).
